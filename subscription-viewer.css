@@ -1,0 +1,223 @@
+html {
+    width: 800px;
+    overflow-x: hidden;
+}
+body {
+    font-family: sans-serif;
+    font-size: medium;
+    color: #333;
+}
+
+h2 {
+  margin: 0;
+}
+code {
+    font-size: large;
+}
+
+date {
+    display: inline-block;
+    color: #111;
+    white-space: nowrap;
+}
+
+form {
+    clear: both;
+    overflow: hidden;
+}
+
+fieldset {
+    float: left;
+    margin-right: 20px;
+    margin-bottom: 20px;
+}
+
+.caption {
+    font-size: small;
+    font-style: italic;
+    line-height: 150%;
+    margin-top: 10px;
+    width: 370px;
+}
+table {
+    border-collapse: collapse;
+}
+
+label {
+    display: inline-block;
+}
+#textualisation {
+    overflow: hidden;
+}
+#textualisation .heading-segment {
+    border: 1px solid #ccc;
+    float: left;
+    margin: 0 5px 5px 0;
+    padding: 5px;
+}
+#details {
+    float: left;
+    margin-right: 20px;
+}
+#currentTerm {
+    float: left;
+}
+
+#subscription {
+    border: 1px solid #cccccc;
+    clear: both;
+    padding: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    width: 750px;
+}
+
+#key ul {
+    list-style-type: none;
+    padding-left: 10px;
+}
+#key li {
+    padding-left: 22px;
+}
+
+#key label {
+    background-color: white;
+    display: block;
+    height: 22px;
+    line-height: 22px;
+    padding-left: 4px;
+}
+
+.active {
+    color: green;
+}
+
+.lapsed {
+    color: darkorange;
+}
+
+.cancelled {
+    color: orangered;
+}
+
+.auto-renewing {
+    color: green;
+}
+
+.one-off {
+    color: darkorange;
+}
+
+
+.aTerm {
+    border: 1px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.term1 {
+    border: 1px solid green;
+    padding-bottom: 1px;
+}
+
+.term2 {
+    border: 1px solid grey;
+    padding-bottom: 1px;
+}
+
+.aDay {
+    width: 1px;
+    margin-top: 1px;
+    height: 21px;
+    display: inline-block;
+}
+
+
+.covered-not-refundable {
+    background-color: lightgreen;
+    border: 1px solid green;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    height: 20px;
+}
+
+.covered {
+    background-color: green;
+}
+
+.lead-time {
+    background-color: #90a88e;
+}
+
+.holiday {
+    background-color: gold;
+}
+
+.discounted {
+    background-color: goldenrod;
+}
+
+.grace {
+    background-color: #99cccc;
+}
+
+.pending {
+    background-color: #d0c6b1;
+}
+
+.lost-revenue {
+    background-color: #e18d01;
+}
+
+.future {
+    background-color: lightgray;
+}
+
+.ticks {
+    height: 22px;
+}
+
+.ticks,
+.legend {
+    position: relative;
+}
+
+.legend {
+    height: 44px;
+}
+
+.ticks .tick {
+    width: 1px;
+    height: 22px;
+    background-color: black;
+    position: absolute;
+    top: 0;
+}
+
+.legend date {
+    position: absolute;
+    background-color: white;
+}
+
+.legend date:nth-child(odd) {
+    top: 0;
+}
+
+.legend date:nth-child(even) {
+    top: 1em;
+}
+
+.rpc {
+    position: relative;
+    height: 22px;
+}
+
+.rpc-label {
+    position: absolute;
+    left: 2px;
+    font-size: 16px;
+    line-height: 20px;
+    height: 20px;
+    overflow: hidden;
+}

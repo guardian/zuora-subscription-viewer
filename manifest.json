@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+
+  "name": "Zuora Subscription Viewer",
+  "description": "This extension creates a visualisation of a Zuora subscription to aid understanding of what's going on for the customer.",
+  "version": "1.1",
+
+  "browser_action": {
+    "default_icon": "icon.png",
+    "default_popup": "subscription-viewer.html"
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "permissions": [
+    "https://api.zuora.com/"
+  ]
+}
