@@ -297,8 +297,8 @@
             e.stopPropagation();
             e.preventDefault();
             const subscriptionId = $(this).find('#subscriptionId').val();
-            if (cannedData && cannedData[subscriptionId]) {
-                renderSubscription(cannedData[subscriptionId]);
+            if (window.cannedData && window.cannedData[subscriptionId]) {
+                renderSubscription(window.cannedData[subscriptionId]);
             } else {
                 go(subscriptionId);
             }
