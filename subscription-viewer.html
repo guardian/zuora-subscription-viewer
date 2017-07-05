@@ -7,6 +7,7 @@
     <script src="jquery-3.2.1.js"></script>
     <script src="moment.js"></script>
     <script src="subscription-viewer.js"></script>
+    <script src="cannedDataForTheTrain.js"></script>
 </head>
 <body>
 <form id="loadSubscription" action="#" method="POST">
@@ -47,13 +48,14 @@
         <div id="key">
             <h3>Key</h3>
             <ul>
-                <li class="lead-time"><label>Lead time (freely cancelable)</label></li>
-                <li class="covered-not-refundable"><label>Paid for / consumed (non-refundable)</label></li>
-                <li class="covered"><label>Paid for in advance (refundable)</label></li>
+                <li class="lead-time"><label>Lead time / free trial</label></li>
+                <li class="covered-not-refundable"><label>Invoiced & Consumed (non-refundable)</label></li>
+                <li class="covered"><label>Invoiced (refundable)</label></li>
+                <li class="scheduled"><label>Scheduled (cancelable)</label></li>
+                <li class="evergreen"><label>Not yet scheduled</label></li>
                 <li class="holiday"><label>On holiday</label></li>
                 <li class="discounted"><label>Discounted</label></li>
                 <li class="grace"><label>Grace period</label></li>
-                <li class="pending"><label>Not yet invoiced</label></li>
                 <li class="lost-revenue"><label>Lost renewal opportunity</label></li>
                 <li class="future"><label>No contract</label></li>
             </ul>

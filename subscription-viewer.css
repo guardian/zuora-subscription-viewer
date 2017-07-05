@@ -1,15 +1,15 @@
 html {
-    width: 800px;
     overflow-x: hidden;
+    width: 800px;
 }
 body {
+    color: #333;
     font-family: sans-serif;
     font-size: medium;
-    color: #333;
 }
 
 h2 {
-  margin: 0;
+    margin: 0;
 }
 code {
     font-size: large;
@@ -27,9 +27,10 @@ form {
 }
 
 fieldset {
+    border: 1px solid #cccccc;
     float: left;
-    margin-right: 20px;
     margin-bottom: 20px;
+    margin-right: 20px;
 }
 
 .caption {
@@ -66,9 +67,9 @@ label {
 #subscription {
     border: 1px solid #cccccc;
     clear: both;
-    padding: 10px;
     overflow-x: auto;
     overflow-y: hidden;
+    padding: 10px;
     width: 750px;
 }
 
@@ -108,11 +109,14 @@ label {
     color: darkorange;
 }
 
+#two-term-grid th {
+    line-height: 250%;
+}
 
 .aTerm {
     border: 1px;
-    padding: 0;
     overflow: hidden;
+    padding: 0;
 }
 
 .term1 {
@@ -126,28 +130,27 @@ label {
 }
 
 .aDay {
-    width: 1px;
-    margin-top: 1px;
-    height: 21px;
     display: inline-block;
+    height: 21px;
+    margin-top: 1px;
+    width: 1px;
 }
-
 
 .covered-not-refundable {
     background-color: lightgreen;
-    border: 1px solid green;
+    border: 2px solid green;
     border-left: 0;
     border-right: 0;
     border-top: 0;
-    height: 20px;
+    height: 19px;
 }
 
 .covered {
-    background-color: green;
+    background-color: forestgreen;
 }
 
 .lead-time {
-    background-color: #90a88e;
+    background-color: #d0c6b1;
 }
 
 .holiday {
@@ -162,8 +165,12 @@ label {
     background-color: #99cccc;
 }
 
-.pending {
-    background-color: #d0c6b1;
+.scheduled {
+    background-color: darkseagreen;
+}
+
+.evergreen {
+    background-color: #90a88e;
 }
 
 .lost-revenue {
@@ -188,16 +195,16 @@ label {
 }
 
 .ticks .tick {
-    width: 1px;
-    height: 22px;
     background-color: black;
+    height: 22px;
     position: absolute;
     top: 0;
+    width: 1px;
 }
 
 .legend date {
-    position: absolute;
     background-color: white;
+    position: absolute;
 }
 
 .legend date:nth-child(odd) {
@@ -214,10 +221,11 @@ label {
 }
 
 .rpc-label {
-    position: absolute;
-    left: 2px;
     font-size: 16px;
-    line-height: 20px;
-    height: 20px;
+    height: 21px;
+    line-height: 21px;
+    left: 2px;
     overflow: hidden;
+    padding-top: 1px;
+    position: absolute;
 }
