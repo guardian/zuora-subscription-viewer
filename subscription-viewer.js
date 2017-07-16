@@ -40,7 +40,7 @@
 
     function renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, isCurrentTerm, isAutoRenewing, isCancelled, isRefundable, isHoliday, isDiscount, isNForN) {
         const isWaiting = !isHoliday && isCurrentTerm && renderDate.isBefore(effectiveStartDate);
-        const isCoveredByRPC = renderDate.isSameOrAfter(effectiveStartDate) && renderDate.isBefore(effectiveEndDate);
+        const isCoveredByRPC = renderDate.isSameOrAfter(effectiveStartDate) && (renderDate.isBefore(effectiveEndDate) || renderDate.isBefore(chargedThroughDate));
         const isOnHoliday = isHoliday && isCurrentTerm && (renderDate.isSameOrAfter(effectiveStartDate) && renderDate.isSameOrBefore(chargedThroughDate));
         const isGrace = !isHoliday && !isNForN && isCurrentTerm && renderDate.isSameOrAfter(effectiveEndDate);
         const $aDay = $(aDayPixelHtml).attr('data-date', renderDate.format(dataFormat));
@@ -67,7 +67,15 @@
                 className = 'scheduled';
             }
         } else if (isAutoRenewing) {
-            className = 'evergreen';
+            if (isCoveredByRPC) {
+                if (renderDate.isBefore(chargedThroughDate)) {
+                    className = renderDate.isSameOrBefore(today) || !isRefundable ? 'covered-not-refundable' : 'covered';
+                } else {
+                    className = 'scheduled';
+                }
+            } else {
+                className = 'evergreen';
+            }
         } else {
             if (!isCancelled && renderDate.isSameOrBefore(today)) {
                 className = 'lost-revenue';
