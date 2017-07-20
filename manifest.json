@@ -3,7 +3,7 @@
 
   "name": "Zuora Subscription Viewer",
   "description": "This extension creates a visualisation of a Zuora subscription to aid understanding of what's going on for the customer.",
-  "version": "1.2.1",
+  "version": "1.2.2",
 
   "browser_action": {
     "default_icon": "icon.png",

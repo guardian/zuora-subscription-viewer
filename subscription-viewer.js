@@ -140,7 +140,8 @@
         const ratePlans = subscription.ratePlans.sort(sortRatePlans);
 
         ratePlans.forEach(function(ratePlan) {
-            if (ratePlan.lastChangeType === "Remove") return;
+            const planHasChargesEndingInThisTermOrNext = ratePlan.ratePlanCharges.map(rpc => moment(rpc.effectiveEndDate)).find(x => x.isAfter(termStartDate));
+            if (ratePlan.lastChangeType === "Remove" && !planHasChargesEndingInThisTermOrNext) return;
 
             const ratePlanCharges = ratePlan.ratePlanCharges.filter(rpc => moment(rpc.effectiveEndDate).diff(moment(rpc.effectiveStartDate), 'days') > 0).sort(sortHomeDeliveryDays);
             ratePlanCharges.forEach(rpc => {
