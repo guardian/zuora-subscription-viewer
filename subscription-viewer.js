@@ -42,16 +42,18 @@
         const isWaiting = !isHoliday && isCurrentTerm && renderDate.isBefore(effectiveStartDate);
         const isCoveredByRPC = renderDate.isSameOrAfter(effectiveStartDate) && (renderDate.isBefore(effectiveEndDate) || renderDate.isBefore(chargedThroughDate));
         const isOnHoliday = isHoliday && isCurrentTerm && (renderDate.isSameOrAfter(effectiveStartDate) && renderDate.isSameOrBefore(chargedThroughDate));
-        const isGrace = !isHoliday && !isNForN && isCurrentTerm && renderDate.isSameOrAfter(effectiveEndDate);
+        const isGrace = !isHoliday && !isNForN && !isDiscount && isCurrentTerm && renderDate.isSameOrAfter(effectiveEndDate);
         const $aDay = $(aDayPixelHtml).attr('data-date', renderDate.format(dataFormat));
 
         let className;
         if (isHoliday && !isOnHoliday) {
             className = '';
-        } else if (isHoliday && isOnHoliday) {
+        } else if (isOnHoliday) {
             className = 'holiday';
         } else if (isDiscount) {
-            className = 'discounted';
+            if (isCoveredByRPC) {
+                className = 'discounted';
+            }
         } else if (isCurrentTerm) {
             if (isWaiting) {
                 className = 'lead-time';
@@ -140,10 +142,12 @@
         const ratePlans = subscription.ratePlans.sort(sortRatePlans);
 
         ratePlans.forEach(function(ratePlan) {
+            const planHasChargesEndingBeforeTermStarts = ratePlan.ratePlanCharges.map(rpc => moment(rpc.effectiveEndDate)).find(x => x.isSameOrBefore(termStartDate));
+            const planHasHolidayWhichEndsBeforeTermStarts = ratePlan.ratePlanCharges.map(rpc =>  moment(rpc.HolidayEnd__c)).find(x => x.isSameOrBefore(termStartDate));
             const planHasChargesEndingInThisTermOrNext = ratePlan.ratePlanCharges.map(rpc => moment(rpc.effectiveEndDate)).find(x => x.isAfter(termStartDate));
-            if (ratePlan.lastChangeType === "Remove" && !planHasChargesEndingInThisTermOrNext) return;
+            if (planHasChargesEndingBeforeTermStarts || planHasHolidayWhichEndsBeforeTermStarts || (ratePlan.lastChangeType === "Remove" && planHasChargesEndingInThisTermOrNext)) return;
 
-            const ratePlanCharges = ratePlan.ratePlanCharges.filter(rpc => moment(rpc.effectiveEndDate).diff(moment(rpc.effectiveStartDate), 'days') > 0).sort(sortHomeDeliveryDays);
+            const ratePlanCharges = ratePlan.ratePlanCharges.sort(sortHomeDeliveryDays); // Don't do this anymore: .filter(rpc => moment(rpc.effectiveEndDate).diff(moment(rpc.effectiveStartDate), 'days') > 0)
             ratePlanCharges.forEach(rpc => {
                 if (matchesHoliday.test(rpc.name)) return;
                 notableDates.add(rpc.effectiveStartDate);
@@ -162,7 +166,7 @@
                     const rpc = ratePlanCharges[p];
                     const isRefundable = !/membership/i.test(rpc.name);
                     const isHoliday = matchesHoliday.test(rpc.name);
-                    const isDiscount = matchesDiscount.test(rpc.name);
+                    const isDiscount = matchesDiscount.test(rpc.model);
                     const isNForN = matchesIssues.test(rpc.name);
 
                     const effectiveStartDate = moment(rpc.effectiveStartDate);
@@ -171,7 +175,7 @@
                     const chargedThroughDate = isHoliday ? holidayEndDate : moment(rpc.chargedThroughDate);
 
                     const holidayDuration = holidayEndDate.diff(effectiveStartDate, 'd');
-                    const holidayDurationText = `[${effectiveStartDate.format('D MMM')}${holidayDuration > 1 ? `–${holidayEndDate.format('D MMM')}` : ''}]`;
+                    const holidayDurationText = `[${effectiveStartDate.format('D MMM')}${holidayDuration !== 1 ? `–${holidayEndDate.format('D MMM')}` : ''}]`;
                     const name = rpc.name.replace("Credit", holidayDurationText).replace('Percentage', 'Discount');
                     const period = `${rpc.endDateCondition === "Subscription_End" ? ` / ${rpc.billingPeriod}` : ''}`;
                     const priceOrDiscount = (rpc.price !== null) ? `${rpc.price.toFixed(2)} ${rpc.currency}${period}` : rpc.discountPercentage ? `${rpc.discountPercentage}%` : '';
