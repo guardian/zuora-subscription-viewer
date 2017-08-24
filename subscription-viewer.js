@@ -206,7 +206,7 @@
         const currentTermLabel = subscription.status === 'Cancelled' ? 'Final term' : 'Current term';
         const futureTermLabel = subscription.status === 'Cancelled' ? 'Year after cancellation' : subscription.autoRenew ? 'Next term' : 'Renewal term';
 
-        $multiTermGrid.append(`<tr><th class="term0">Last term</th><th class="term1">${currentTermLabel} (<span class="${mechanic.toLowerCase()}">${mechanic}</span>)</th><th class="term2">${futureTermLabel}</th></tr>`);
+        $multiTermGrid.append(`<tr><th class="term0">&hellip;</th><th class="term1">${currentTermLabel} (<span class="${mechanic.toLowerCase()}">${mechanic}</span>)</th><th class="term2">${futureTermLabel}</th></tr>`);
         $multiTermGrid.append($ratePlans).width(preFirstTermLength + currentTermLength + nextTermLength + 3);
         renderLegend($multiTermGrid, earliestRenderDay, notableDates, termEndDate, nextTermEndDate);
     }
