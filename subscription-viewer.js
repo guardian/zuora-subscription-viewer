@@ -6,11 +6,11 @@
     const rpcHtml = '<div class="rpc"><span class="rpc-label"></span></div>';
     const aDayPixelHtml = '<span class="aDay"></span>';
     const aTickHtml = '<span class="tick"></span>';
-    const ticksRowHtml = '<tr><td class="ticks" colspan="2"></td></tr>';
-    const legendRowHtml = '<tr><td colspan="2"><div class="legend"></div></td></tr>';
+    const ticksRowHtml = '<tr class="ticks-row"><td class="ticks" colspan="3"></td></tr>';
+    const legendRowHtml = '<tr class="legend-row"><td colspan="3"><div class="legend"></div></td></tr>';
     const today = moment().startOf('day');
     const matchesHoliday = /holiday/i;
-    const matchesDiscount = /discount|percentage/i;
+    const matchesDiscount = /discount|percentage|adjustment/i;
     const matchesIssues = /issues/i;
 
     Array.prototype.flatMap = function(f) {
@@ -39,9 +39,9 @@
     }
 
     function renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, isCurrentTerm, isAutoRenewing, isCancelled, isRefundable, isHoliday, isDiscount, isNForN) {
-        const isWaiting = !isHoliday && isCurrentTerm && renderDate.isBefore(effectiveStartDate);
+        const isWaiting = !isHoliday && renderDate.isBefore(effectiveStartDate);
         const isCoveredByRPC = renderDate.isSameOrAfter(effectiveStartDate) && (renderDate.isBefore(effectiveEndDate) || renderDate.isBefore(chargedThroughDate));
-        const isOnHoliday = isHoliday && isCurrentTerm && (renderDate.isSameOrAfter(effectiveStartDate) && renderDate.isSameOrBefore(chargedThroughDate));
+        const isOnHoliday = isHoliday && (renderDate.isSameOrAfter(effectiveStartDate) && renderDate.isSameOrBefore(chargedThroughDate));
         const isGrace = !isHoliday && !isNForN && !isDiscount && isCurrentTerm && renderDate.isSameOrAfter(effectiveEndDate);
         const $aDay = $(aDayPixelHtml).attr('data-date', renderDate.format(dataFormat));
 
@@ -75,6 +75,8 @@
                 } else {
                     className = 'scheduled';
                 }
+            } else if (isWaiting) {
+                className = 'lead-time'
             } else {
                 className = 'evergreen';
             }
@@ -89,84 +91,88 @@
         $rpc.append($aDay)
     }
 
-    function renderLegend($twoTermGrid, termStartDate, notableDates, termEndDate, nextTermEndDate) {
+    function renderLegend($multiTermGrid, earliestRenderDay, notableDates, termEndDate, nextTermEndDate) {
         const $ticksRow = $(ticksRowHtml);
         const $ticks = $ticksRow.find('.ticks');
         const $legendRow = $(legendRowHtml);
         const $legend = $legendRow.find('.legend');
-        let renderDay = termStartDate.clone();
+        let renderDay = earliestRenderDay.clone();
         while (renderDay.isSameOrBefore(nextTermEndDate)) {
-            let offset = renderDay.diff(termStartDate, 'days') + ((renderDay.isBefore(termEndDate)) ? 1 : 2); // + 1 or 2 for the left borders!
+            let offset = renderDay.diff(earliestRenderDay, 'days') + ((renderDay.isBefore(termEndDate)) ? 1 : 3); // handle the left borders!
             let label = 'Today';
             let actuallyRender = false;
             if (renderDay.isSame(today)) {
                 actuallyRender = true;
-            } else if (notableDates.has(renderDay.format('YYYY-MM-DD'))) {
+            } else if (notableDates.has(renderDay.format(dataFormat))) {
                 label = renderDay.format("D MMM 'YY");
                 actuallyRender = true;
             }
             if (actuallyRender) {
                 $ticks.append($(aTickHtml).offset({left: offset}));
-                $legend.append(`<date style="left:${offset + (renderDay.isSame(today) ? -3 : 0)}px">${label}</date>`);
+                $legend.append(`<date style="left:${offset}px">${label}</date>`);
             }
             renderDay.add(1, 'days');
         }
-        $twoTermGrid.append($ticksRow, $legendRow);
+        $multiTermGrid.append($ticksRow, $legendRow);
     }
 
     function renderTimeline(subscription) {
-        const $twoTermGrid = $('#two-term-grid');
-        if ($twoTermGrid.length === 0) return;
-        $twoTermGrid.html('');
+        const $multiTermGrid = $('#multi-term-grid');
+        if ($multiTermGrid.length === 0) return;
+        $multiTermGrid.html('');
 
-        const mechanic = subscription.autoRenew ? 'Auto-renewing' : 'One-off';
-        const currentTermLabel = subscription.status === 'Cancelled' ? 'Final term' : 'Current term';
-        const futureTermLabel = subscription.status === 'Cancelled' ? 'Year after cancellation' : subscription.autoRenew ? 'Next term' : 'Renewal term';
-
-        $twoTermGrid.append(`<tr><th class="term1">${currentTermLabel} (<span class="${mechanic.toLowerCase()}">${mechanic}</span>)</th><th class="term2">${futureTermLabel}</th></tr>`);
+        const isAutoRenew = subscription.autoRenew;
+        const isCancelled = subscription.status === 'Cancelled';
 
         const $ratePlans = [];
         const termStartDate = moment(subscription.termStartDate);
         const termEndDate = moment(subscription.termEndDate);
         const nextTermEndDate = termEndDate.clone().add(1, 'years');
-        const firstTermLength = termEndDate.diff(termStartDate, 'days');
-        const secondTermLength = nextTermEndDate.diff(termEndDate, 'days');
-        const isAutoRenew = subscription.autoRenew;
-        const isCancelled = subscription.status === 'Cancelled';
+
         const notableDates = new Set([
             subscription.termStartDate,
             subscription.termEndDate,
-            nextTermEndDate.format('YYYY-MM-DD')
+            nextTermEndDate.format(dataFormat),
+            today.format(dataFormat)
         ]);
 
-        const ratePlans = subscription.ratePlans.sort(sortRatePlans);
-
-        ratePlans.forEach(function(ratePlan) {
-            const planHasChargesEndingBeforeTermStarts = ratePlan.ratePlanCharges.map(rpc => moment(rpc.effectiveEndDate)).find(x => x.isSameOrBefore(termStartDate));
-            const planHasHolidayWhichEndsBeforeTermStarts = ratePlan.ratePlanCharges.map(rpc =>  moment(rpc.HolidayEnd__c)).find(x => x.isSameOrBefore(termStartDate));
-            const planHasChargesEndingInThisTermOrNext = ratePlan.ratePlanCharges.map(rpc => moment(rpc.effectiveEndDate)).find(x => x.isAfter(termStartDate));
-            if (planHasChargesEndingBeforeTermStarts || planHasHolidayWhichEndsBeforeTermStarts || (ratePlan.lastChangeType === "Remove" && planHasChargesEndingInThisTermOrNext)) return;
-
-            const ratePlanCharges = ratePlan.ratePlanCharges.sort(sortHomeDeliveryDays); // Don't do this anymore: .filter(rpc => moment(rpc.effectiveEndDate).diff(moment(rpc.effectiveStartDate), 'days') > 0)
-            ratePlanCharges.forEach(rpc => {
+        subscription.ratePlans.forEach(ratePlan => {
+            ratePlan.ratePlanCharges.forEach(rpc => {
                 if (matchesHoliday.test(rpc.name)) return;
                 notableDates.add(rpc.effectiveStartDate);
                 notableDates.add(rpc.chargedThroughDate);
                 notableDates.add(rpc.effectiveEndDate);
             });
+        });
+
+        const earliestRenderDay = moment(Array.from(notableDates.values()).sort()[0]).startOf('day')
+        const preFirstTermLength = termStartDate.diff(earliestRenderDay, 'days');
+        const currentTermLength = termEndDate.diff(termStartDate, 'days');
+        const nextTermLength = nextTermEndDate.diff(termEndDate, 'days');
+        const termLengths = [preFirstTermLength, currentTermLength, nextTermLength];
+
+
+        const ratePlans = subscription.ratePlans.sort(sortRatePlans);
+        ratePlans.forEach(function(ratePlan) {
+            const planHasHolidayWhichEndsBeforeDisplay = ratePlan.ratePlanCharges.map(rpc =>  moment(rpc.HolidayEnd__c)).find(x => x.isSameOrBefore(earliestRenderDay));
+            const planHasChargesEndingInThisTermOrNext = ratePlan.ratePlanCharges.map(rpc => moment(rpc.effectiveEndDate)).find(x => x.isAfter(termStartDate));
+            if (planHasHolidayWhichEndsBeforeDisplay || ratePlan.lastChangeType === "Remove" && planHasChargesEndingInThisTermOrNext) return;
+
+            const ratePlanCharges = ratePlan.ratePlanCharges.sort(sortHomeDeliveryDays); // Don't do this anymore: .filter(rpc => moment(rpc.effectiveEndDate).diff(moment(rpc.effectiveStartDate), 'days') > 0)
 
             const $chargeLines = $('<tr class="charge-lines"></tr>');
             $ratePlans.push($chargeLines);
+            let processedDays = 0;
 
-            for (let y = 1; y <= 2; y++) {
-                const termLengthInDays = (y === 1) ? firstTermLength : secondTermLength;
+            for (let y = 0; y <= 2; y++) {
+                const termLengthInDays = termLengths[y];
                 const $chargeLineTerm = $(aTermHtml).addClass(`term${y}`).width(termLengthInDays);
                 const isCurrentTerm = (y === 1);
                 for (let p = 0; p < ratePlanCharges.length; p++) {
                     const rpc = ratePlanCharges[p];
                     const isRefundable = !/membership/i.test(rpc.name);
                     const isHoliday = matchesHoliday.test(rpc.name);
-                    const isDiscount = matchesDiscount.test(rpc.model);
+                    const isDiscount = matchesDiscount.test(rpc.model) || matchesDiscount.test(rpc.name);
                     const isNForN = matchesIssues.test(rpc.name);
 
                     const effectiveStartDate = moment(rpc.effectiveStartDate);
@@ -174,30 +180,35 @@
                     const holidayEndDate = moment(rpc.HolidayEnd__c);
                     const chargedThroughDate = isHoliday ? holidayEndDate : moment(rpc.chargedThroughDate);
 
-                    const holidayDuration = holidayEndDate.diff(effectiveStartDate, 'd');
+                    const holidayDuration = holidayEndDate.diff(effectiveStartDate, 'd') + 1 ; // +1 as the holidayEndDate date is inclusive
                     const holidayDurationText = `[${effectiveStartDate.format('D MMM')}${holidayDuration !== 1 ? `–${holidayEndDate.format('D MMM')}` : ''}]`;
                     const name = rpc.name.replace("Credit", holidayDurationText).replace('Percentage', 'Discount');
                     const period = `${rpc.endDateCondition === "Subscription_End" ? ` / ${rpc.billingPeriod}` : ''}`;
                     const priceOrDiscount = (rpc.price !== null) ? `${rpc.price.toFixed(2)} ${rpc.currency}${period}` : rpc.discountPercentage ? `${rpc.discountPercentage}%` : '';
                     const rpcLabel = `${name} ${priceOrDiscount ? `(${priceOrDiscount})` : ''}`;
                     const $rpc = $(rpcHtml);
-                    if (y === 1) $rpc.find(".rpc-label").text(rpcLabel);
+                    if (isCurrentTerm) $rpc.find(".rpc-label").text(rpcLabel);
 
-                    let timelineDaysPresented = (y === 1) ? 0 : firstTermLength;
+                    let timelineDaysPresented = processedDays;
                     for (let i = 0; i < termLengthInDays; i++) {
-                        const renderDate = termStartDate.clone().add(timelineDaysPresented, 'd');
+                        const renderDate = earliestRenderDay.clone().add(timelineDaysPresented, 'd');
                         renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, isCurrentTerm, isAutoRenew, isCancelled, isRefundable, isHoliday, isDiscount, isNForN);
                         timelineDaysPresented++;
                     }
                     $chargeLineTerm.append($rpc);
                 }
+                processedDays += termLengthInDays;
                 $chargeLines.append($chargeLineTerm);
             }
         });
 
+        const mechanic = subscription.autoRenew ? 'Auto-renewing' : 'One-off';
+        const currentTermLabel = subscription.status === 'Cancelled' ? 'Final term' : 'Current term';
+        const futureTermLabel = subscription.status === 'Cancelled' ? 'Year after cancellation' : subscription.autoRenew ? 'Next term' : 'Renewal term';
 
-        $twoTermGrid.append($ratePlans).width(firstTermLength + secondTermLength + 3);
-        renderLegend($twoTermGrid, termStartDate, notableDates, termEndDate, nextTermEndDate);
+        $multiTermGrid.append(`<tr><th class="term0">Last term</th><th class="term1">${currentTermLabel} (<span class="${mechanic.toLowerCase()}">${mechanic}</span>)</th><th class="term2">${futureTermLabel}</th></tr>`);
+        $multiTermGrid.append($ratePlans).width(preFirstTermLength + currentTermLength + nextTermLength + 3);
+        renderLegend($multiTermGrid, earliestRenderDay, notableDates, termEndDate, nextTermEndDate);
     }
 
     function renderCurrentTerm(subscription) {
@@ -205,15 +216,15 @@
         if ($currentTerm.length === 0) return;
         $currentTerm.html('');
 
-        const termStartDate = moment(subscription.termStartDate);
+        const currentTermStartDate = moment(subscription.termStartDate);
         const chargedThroughDates = subscription.ratePlans.filter(rp => rp.productName !== 'Discounts').flatMap(rp => rp.ratePlanCharges.map(rpc => rpc.chargedThroughDate)).sort();
         const earliestChargedThroughDate = moment(chargedThroughDates[0]);
         const termEndDate = moment(subscription.termEndDate);
-        const termDuration = termEndDate.diff(termStartDate, 'd');
+        const termDuration = termEndDate.diff(currentTermStartDate, 'd');
         const remaining = termEndDate.diff(today, 'd');
 
         const header = '<h3>Current term</h3>';
-        const termStartDateHtml = `<div>Start date: <date>${termStartDate.format(dmy)}</date></div>`;
+        const termStartDateHtml = `<div>Start date: <date>${currentTermStartDate.format(dmy)}</date></div>`;
         const termDurationHtml = `<div>Duration: ${subscription.currentTerm} ${subscription.currentTermPeriodType}s (${termDuration} days)</div>`;
 
         let nextPaymentDate;

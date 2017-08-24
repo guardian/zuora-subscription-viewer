@@ -109,7 +109,7 @@ label {
     color: darkorange;
 }
 
-#two-term-grid th {
+#multi-term-grid th {
     line-height: 250%;
 }
 
@@ -117,6 +117,11 @@ label {
     border: 1px;
     overflow: hidden;
     padding: 0;
+}
+
+.term0 {
+    border: 1px solid green;
+    padding-bottom: 1px;
 }
 
 .term1 {
