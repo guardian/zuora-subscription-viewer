@@ -44,21 +44,26 @@
 
     function renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, isCurrentTerm, isAutoRenewing, isCancelled, isRefundable, isHoliday, isDiscount, isNForN, ratePlanIsRemoved) {
         const isWaiting = !isHoliday && renderDate.isBefore(effectiveStartDate);
+        const rpcIsRemoved = ratePlanIsRemoved && effectiveEndDate.isBefore(renderDate);
         const isCoveredByRPC = renderDate.isSameOrAfter(effectiveStartDate) && (renderDate.isBefore(effectiveEndDate) || renderDate.isBefore(chargedThroughDate));
-        const isOnHoliday = isHoliday && (renderDate.isSameOrAfter(effectiveStartDate) && renderDate.isSameOrBefore(chargedThroughDate));
-        const isGrace = !isHoliday && !isNForN && !isDiscount && isCurrentTerm && renderDate.isSameOrAfter(effectiveEndDate);
-        const $aDay = $(aDayPixelHtml).attr('data-date', renderDate.format(dataFormat));
-        const rpcIsRemoved = effectiveEndDate.isBefore(renderDate) && ratePlanIsRemoved;
+        const isGrace = !isHoliday && !isNForN && !isDiscount && !rpcIsRemoved && isCurrentTerm && renderDate.isSameOrAfter(effectiveEndDate);
+
+        const holidayIsActive = isHoliday && isCoveredByRPC;
+        const holidayIsNotActive = isHoliday && !isCoveredByRPC;
+        const discountIsActive = isDiscount && isCoveredByRPC;
+        const discountIsNotActive = isDiscount && !isCoveredByRPC;
+        const removedPlanIsActive = ratePlanIsRemoved && isCoveredByRPC;
+        const removedPlanIsNotActive = ratePlanIsRemoved && !isCoveredByRPC;
 
         let className;
-        if (isHoliday && !isOnHoliday || rpcIsRemoved) {
+        if (holidayIsNotActive || removedPlanIsNotActive || discountIsNotActive || (!isCurrentTerm && isWaiting)) {
             className = '';
-        } else if (isOnHoliday) {
+        } else if (holidayIsActive) {
             className = 'holiday';
-        } else if (isDiscount) {
-            if (isCoveredByRPC) {
-                className = 'discounted';
-            }
+        } else if (discountIsActive) {
+            className = 'discounted';
+        } else if (removedPlanIsActive) {
+            className = 'covered-not-refundable';
         } else if (isCurrentTerm) {
             if (isWaiting) {
                 className = 'lead-time';
@@ -80,28 +85,35 @@
                 } else {
                     className = 'scheduled';
                 }
-            } else if (isWaiting) {
-                className = 'lead-time'
             } else {
                 className = 'evergreen';
             }
         } else {
-            if (!isCancelled && renderDate.isSameOrBefore(today)) {
+            if (renderDate.isSameOrBefore(effectiveStartDate)) {
+                className = '';
+            } else if (!isCancelled && renderDate.isSameOrBefore(today)) {
                 className = 'lost-revenue';
             } else {
                 className = 'future';
             }
         }
-        $aDay.addClass(className);
+        const $aDay = $(aDayPixelHtml).attr('data-date', renderDate.format(dataFormat)).addClass(className);
         $rpc.append($aDay)
     }
 
-    function renderLegend($multiTermGrid, earliestRenderDay, notableDates, termStartDate, termEndDate, nextTermEndDate) {
+    function timelineHeaderHtml(subscription) {
+        const mechanic = subscription.autoRenew ? 'Auto-renewing' : 'One-off';
+        const currentTermLabel = subscription.status === 'Cancelled' ? 'Final term' : 'Current term';
+        const futureTermLabel = subscription.status === 'Cancelled' ? 'Year after cancellation' : subscription.autoRenew ? 'Next term' : 'Renewal term';
+        return `<tr><th class="term0">&hellip;</th><th class="term1">${currentTermLabel} (<span class="${mechanic.toLowerCase()}">${mechanic}</span>)</th><th class="term2">${futureTermLabel}</th></tr>`
+    }
+
+    function legendHtml(earliestRenderDay, notableDates, termStartDate, termEndDate, nextTermEndDate) {
         const $ticksRow = $(ticksRowHtml);
         const $ticks = $ticksRow.find('.ticks');
         const $legendRow = $(legendRowHtml);
         const $legend = $legendRow.find('.legend');
-        const minimumOffset = earliestRenderDay.isBefore(termStartDate) ? 0 : 22;
+        const minimumOffset = earliestRenderDay.isBefore(termStartDate) ? 0 : 22; // 22 == width of &hellip;
 
         let renderDay = earliestRenderDay.clone();
         while (renderDay.isSameOrBefore(nextTermEndDate)) {
@@ -122,7 +134,7 @@
             }
             renderDay.add(1, 'days');
         }
-        $multiTermGrid.append($ticksRow, $legendRow);
+        return [$ticksRow, $legendRow];
     }
 
     function extractNotableDates(subscription, nextTermEndDate) {
@@ -150,6 +162,9 @@
         const $multiTermGrid = $('#multi-term-grid');
         if ($multiTermGrid.length === 0) return;
 
+        $multiTermGrid.html('');
+        $multiTermGrid.append(timelineHeaderHtml(subscription));
+
         const isAutoRenew = subscription.autoRenew;
         const isCancelled = subscription.status === 'Cancelled';
         const termStartDate = moment(subscription.termStartDate);
@@ -169,7 +184,8 @@
             if (planHasHolidayWhichEndsBeforeDisplay) return;
 
             const ratePlanIsRemoved = ratePlan.lastChangeType === 'Remove';
-            const ratePlanCharges = ratePlan.ratePlanCharges.sort(sortHomeDeliveryDays);
+            const ratePlanCharges = ratePlan.ratePlanCharges.filter(rpc => rpc.price !== 0).sort(sortHomeDeliveryDays);
+            if (ratePlanCharges.length === 0) return;
 
             const $chargeLines = $('<tr class="charge-lines"></tr>');
             $products.push($chargeLines);
@@ -212,15 +228,8 @@
                 $chargeLines.append($chargeLineTerm);
             }
         });
-
-        const mechanic = subscription.autoRenew ? 'Auto-renewing' : 'One-off';
-        const currentTermLabel = subscription.status === 'Cancelled' ? 'Final term' : 'Current term';
-        const futureTermLabel = subscription.status === 'Cancelled' ? 'Year after cancellation' : subscription.autoRenew ? 'Next term' : 'Renewal term';
-
-        $multiTermGrid.html('');
-        $multiTermGrid.append(`<tr><th class="term0">&hellip;</th><th class="term1">${currentTermLabel} (<span class="${mechanic.toLowerCase()}">${mechanic}</span>)</th><th class="term2">${futureTermLabel}</th></tr>`);
-        $multiTermGrid.append($products).width(preFirstTermLength + currentTermLength + nextTermLength + 3);
-        renderLegend($multiTermGrid, earliestRenderDay, notableDates, termStartDate, termEndDate, nextTermEndDate);
+        $multiTermGrid.append($products);
+        $multiTermGrid.append(legendHtml(earliestRenderDay, notableDates, termStartDate, termEndDate, nextTermEndDate));
     }
 
     function renderCurrentTerm(subscription) {
