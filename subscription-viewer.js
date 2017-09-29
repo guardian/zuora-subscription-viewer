@@ -46,7 +46,7 @@
         const isWaiting = !isHoliday && renderDate.isBefore(effectiveStartDate);
         const rpcIsRemoved = ratePlanIsRemoved && effectiveEndDate.isBefore(renderDate);
         const isCoveredByRPC = renderDate.isSameOrAfter(effectiveStartDate) && (renderDate.isBefore(effectiveEndDate) || renderDate.isBefore(chargedThroughDate));
-        const isGrace = !isHoliday && !isNForN && !isDiscount && !rpcIsRemoved && isCurrentTerm && renderDate.isSameOrAfter(effectiveEndDate);
+        const isGrace = isCurrentTerm && !isHoliday && !isNForN && !isDiscount && !rpcIsRemoved && renderDate.isSameOrAfter(effectiveEndDate);
 
         const holidayIsActive = isHoliday && isCoveredByRPC;
         const holidayIsNotActive = isHoliday && !isCoveredByRPC;
@@ -64,11 +64,11 @@
             className = 'discounted';
         } else if (removedPlanIsActive) {
             className = 'covered-not-refundable';
+        } else if (isGrace) {
+            className = 'grace';
         } else if (isCurrentTerm) {
             if (isWaiting) {
                 className = 'lead-time';
-            } else if (isGrace) {
-                className = 'grace';
             } else if (isCoveredByRPC) {
                 if (renderDate.isBefore(chargedThroughDate)) {
                     className = renderDate.isSameOrBefore(today) || !isRefundable ? 'covered-not-refundable' : 'covered';
@@ -184,7 +184,7 @@
             if (planHasHolidayWhichEndsBeforeDisplay) return;
 
             const ratePlanIsRemoved = ratePlan.lastChangeType === 'Remove';
-            const ratePlanCharges = ratePlan.ratePlanCharges.filter(rpc => rpc.price !== 0).sort(sortHomeDeliveryDays);
+            const ratePlanCharges = ratePlan.ratePlanCharges.filter(rpc => rpc.price !== 0 && moment(rpc.effectiveStartDate).isBefore(rpc.effectiveEndDate)).sort(sortHomeDeliveryDays);
             if (ratePlanCharges.length === 0) return;
 
             const $chargeLines = $('<tr class="charge-lines"></tr>');
@@ -212,7 +212,7 @@
                     const name = rpc.name.replace("Credit", holidayDurationText).replace('Percentage', 'Discount');
                     const period = `${rpc.endDateCondition === "Subscription_End" ? ` / ${rpc.billingPeriod}` : ''}`;
                     const priceOrDiscount = (rpc.price !== null) ? `${rpc.price.toFixed(2)} ${rpc.currency}${period}` : rpc.discountPercentage ? `${rpc.discountPercentage}%` : '';
-                    const rpcLabel = `${name} ${priceOrDiscount ? `(${priceOrDiscount})` : ''}`;
+                    const rpcLabel = `${name} ${priceOrDiscount ? `(${priceOrDiscount})` : ''} ${ratePlanIsRemoved ? '[Removed]' : ''}`;
                     const $rpc = $(rpcHtml).width(termLengthInDays);
                     if (isCurrentTerm) $rpc.find(".rpc-label").text(rpcLabel);
 
