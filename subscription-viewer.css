@@ -56,6 +56,9 @@ label {
     margin: 0 5px 5px 0;
     padding: 5px;
 }
+#heading {
+    overflow: hidden;
+}
 #details {
     float: left;
     margin-right: 20px;
@@ -109,7 +112,7 @@ label {
     color: darkorange;
 }
 
-#two-term-grid th {
+#multi-term-grid th {
     line-height: 250%;
 }
 
@@ -117,6 +120,12 @@ label {
     border: 1px;
     overflow: hidden;
     padding: 0;
+}
+
+.term0 {
+    border: 1px solid green;
+    padding-bottom: 1px;
+    min-width: 20px;
 }
 
 .term1 {
@@ -207,12 +216,28 @@ label {
     position: absolute;
 }
 
-.legend date:nth-child(odd) {
+.legend date:nth-child(1n) {
     top: 0;
 }
 
-.legend date:nth-child(even) {
+.legend date:nth-child(2n) {
     top: 1em;
+}
+
+.legend date:nth-child(3n) {
+    top: 2em;
+}
+
+.legend date:nth-child(4n) {
+    top: 3em;
+}
+
+.ticks .today {
+    background-color: cornflowerblue;
+}
+
+.legend .today {
+    color: cornflowerblue
 }
 
 .rpc {
