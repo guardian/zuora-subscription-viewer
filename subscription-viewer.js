@@ -42,17 +42,15 @@
         }
     }
 
-    function renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, isCurrentTerm, isAutoRenewing, isCancelled, isRefundable, isHoliday, isDiscount, isNForN, ratePlanIsRemoved) {
+    function renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, holidayEndDate, isBeforeCurrentTerm, isCurrentTerm, isAfterCurrentTerm, isAutoRenewing, isCancelled, isRefundable, isHoliday, isDiscount, isNForN, ratePlanIsRemoved) {
         const isWaiting = !isHoliday && renderDate.isBefore(effectiveStartDate);
         const rpcIsRemoved = ratePlanIsRemoved && effectiveEndDate.isBefore(renderDate);
         const isCoveredByRPC = renderDate.isSameOrAfter(effectiveStartDate) && (renderDate.isBefore(effectiveEndDate) || renderDate.isBefore(chargedThroughDate));
         const isGrace = isCurrentTerm && !isHoliday && !isNForN && !isDiscount && !rpcIsRemoved && renderDate.isSameOrAfter(effectiveEndDate);
-
-        const holidayIsActive = isHoliday && isCoveredByRPC;
-        const holidayIsNotActive = isHoliday && !isCoveredByRPC;
+        const holidayIsActive = isHoliday && renderDate.isSameOrAfter(effectiveStartDate) && renderDate.isSameOrBefore(holidayEndDate);
+        const holidayIsNotActive = isHoliday && !holidayIsActive;
         const discountIsActive = isDiscount && isCoveredByRPC;
         const discountIsNotActive = isDiscount && !isCoveredByRPC;
-        const removedPlanIsActive = ratePlanIsRemoved && isCoveredByRPC;
         const removedPlanIsNotActive = ratePlanIsRemoved && !isCoveredByRPC;
 
         let className;
@@ -62,8 +60,6 @@
             className = 'holiday';
         } else if (discountIsActive) {
             className = 'discounted';
-        } else if (removedPlanIsActive) {
-            className = 'covered-not-refundable';
         } else if (isGrace) {
             className = 'grace';
         } else if (isCurrentTerm) {
@@ -89,12 +85,18 @@
                 className = 'evergreen';
             }
         } else {
-            if (renderDate.isSameOrBefore(effectiveStartDate)) {
-                className = '';
+            if (isBeforeCurrentTerm) {
+                if (renderDate.isBefore(chargedThroughDate)) {
+                    className = renderDate.isSameOrBefore(today) || !isRefundable ? 'covered-not-refundable' : 'covered';
+                } else {
+                    className = 'scheduled';
+                }
             } else if (!isCancelled && renderDate.isSameOrBefore(today)) {
                 className = 'lost-revenue';
-            } else {
+            } else if (isAfterCurrentTerm) {
                 className = 'future';
+            } else {
+                className = ''
             }
         }
         const $aDay = $(aDayPixelHtml).attr('data-date', renderDate.format(dataFormat)).addClass(className);
@@ -194,7 +196,9 @@
             for (let y = 0; y <= 2; y++) {
                 const termLengthInDays = termLengths[y];
                 const $chargeLineTerm = $(aTermHtml).addClass(`term${y}`);
+                const isBeforeCurrentTerm = (y < 1);
                 const isCurrentTerm = (y === 1);
+                const isAfterCurrentTerm = (y > 1);
                 for (let p = 0; p < ratePlanCharges.length; p++) {
                     const rpc = ratePlanCharges[p];
                     const isRefundable = !/membership/i.test(rpc.name);
@@ -205,7 +209,7 @@
                     const effectiveStartDate = moment(rpc.effectiveStartDate);
                     const effectiveEndDate = moment(rpc.effectiveEndDate);
                     const holidayEndDate = moment(rpc.HolidayEnd__c);
-                    const chargedThroughDate = isHoliday ? holidayEndDate : moment(rpc.chargedThroughDate);
+                    const chargedThroughDate = moment(rpc.chargedThroughDate);
 
                     const holidayDuration = holidayEndDate.diff(effectiveStartDate, 'd') + 1 ; // +1 as the holidayEndDate date is inclusive
                     const holidayDurationText = `[${effectiveStartDate.format('D MMM')}${holidayDuration !== 1 ? `–${holidayEndDate.format('D MMM')}` : ''}]`;
@@ -214,12 +218,12 @@
                     const priceOrDiscount = (rpc.price !== null) ? `${rpc.price.toFixed(2)} ${rpc.currency}${period}` : rpc.discountPercentage ? `${rpc.discountPercentage}%` : '';
                     const rpcLabel = `${name} ${priceOrDiscount ? `(${priceOrDiscount})` : ''} ${ratePlanIsRemoved ? '[Removed]' : ''}`;
                     const $rpc = $(rpcHtml).width(termLengthInDays);
-                    if (isCurrentTerm) $rpc.find(".rpc-label").text(rpcLabel);
+                    if (isCurrentTerm) $rpc.find(".rpc-label").text(rpcLabel).attr('title', rpc.id);
 
                     let timelineDaysPresented = processedDays;
                     for (let i = 0; i < termLengthInDays; i++) {
                         const renderDate = earliestRenderDay.clone().add(timelineDaysPresented, 'd');
-                        renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, isCurrentTerm, isAutoRenew, isCancelled, isRefundable, isHoliday, isDiscount, isNForN, ratePlanIsRemoved);
+                        renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, holidayEndDate, isBeforeCurrentTerm, isCurrentTerm, isAfterCurrentTerm, isAutoRenew, isCancelled, isRefundable, isHoliday, isDiscount, isNForN, ratePlanIsRemoved);
                         timelineDaysPresented++;
                     }
                     $chargeLineTerm.append($rpc);
@@ -242,7 +246,10 @@
         const earliestChargedThroughDate = moment(chargedThroughDates[0]);
         const termEndDate = moment(subscription.termEndDate);
         const termDuration = termEndDate.diff(currentTermStartDate, 'd');
-        const remaining = termEndDate.diff(today, 'd');
+        const remainingDays = termEndDate.diff(moment(), 'd');
+        const remainingHours = termEndDate.diff(moment(), 'h');
+        const dayOrDays = Math.abs(remainingDays) === 1 ? 'day' : 'days';
+        const hourOrHours = Math.abs(remainingHours) === 1 ? 'hour' : 'hours';
 
         const header = '<h3>Current term</h3>';
         const termStartDateHtml = `<div>Start date: <date>${currentTermStartDate.format(dmy)}</date></div>`;
@@ -255,12 +262,16 @@
             termEndDateHtml = `<div><strong>Cancelled</strong>: <date>${moment(subscription.termEndDate).format(dmy)}</date></div>`;
         } else if (subscription.autoRenew) {
             nextPaymentDate = `<div><b>Next payment date</b>: <date>${earliestChargedThroughDate.format(dmy)}</date></div>`;
-            termEndDateHtml = `<div>Next term starts: <date>${termEndDate.format(dmy)} (${remaining} days)</date></div>`;
+            termEndDateHtml = `<div>Next term starts: <date>${termEndDate.format(dmy)} (${remainingDays ? remainingDays + dayOrDays : remainingHours + ' hours'})</date></div>`;
         } else {
             termEndDateHtml = `<div>Last day of service: <date>${termEndDate.clone().subtract(1, 'days').format(dmy)}</date></div>`;
             if (!subscription.autoRenew) {
                 termEndDateHtml += `<div><strong>Renewal required</strong>: <date>${termEndDate.format(dmy)}</date></div>`;
-                remainingHtml = remaining !== 0 &&`<div>${remaining > 0 ? `Remaining: ${remaining}` : `<b>Overdue</b>: ${0 - remaining}`} days</div>`;
+                if (remainingDays === 0) {
+                    remainingHtml = `<div>${remainingHours > 0 ? `Remaining: ${remainingHours}` : `<b>Overdue</b>: ${0 - remainingHours}`} ${hourOrHours}</div>`;
+                } else {
+                    remainingHtml = `<div>${remainingDays > 0 ? `Remaining: ${remainingDays}` : `<b>Overdue</b>: ${0 - remainingDays}`} ${dayOrDays}</div>`;
+                }
             }
         }
         $currentTerm.append(header, termStartDateHtml, termDurationHtml, nextPaymentDate, termEndDateHtml, remainingHtml);
@@ -298,7 +309,7 @@
         const accountHtml = `<div class="heading-segment">Account: ${subscription.accountName}${(subscription.accountNumber !== subscription.accountName) ? ` (#${subscription.accountNumber})` : ''}</div>`;
         const statusHtml = `<div class="heading-segment">Status: <span class="${status.toLowerCase()}">${status}</span></div>`;
 
-        $h2.append(subscriptionHtml, statusHtml, accountHtml);
+        $h2.append(subscriptionHtml, accountHtml, statusHtml);
 
         $heading.html($h2)
     }

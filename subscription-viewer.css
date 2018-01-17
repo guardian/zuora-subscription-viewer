@@ -6,6 +6,7 @@ body {
     color: #333;
     font-family: sans-serif;
     font-size: medium;
+    -webkit-font-smoothing: antialiased;
 }
 
 h2 {
@@ -61,10 +62,12 @@ label {
 }
 #details {
     float: left;
+    line-height: 140%;
     margin-right: 20px;
 }
 #currentTerm {
     float: left;
+    line-height: 140%;
 }
 
 #subscription {
@@ -110,6 +113,11 @@ label {
 
 .one-off {
     color: darkorange;
+}
+
+.grid-container {
+    width: 100%;
+    overflow: scroll;
 }
 
 #multi-term-grid th {
@@ -200,7 +208,7 @@ label {
 }
 
 .legend {
-    height: 44px;
+    height: 66px;
 }
 
 .ticks .tick {
