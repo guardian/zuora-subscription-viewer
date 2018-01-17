@@ -338,6 +338,7 @@
         $.ajax(`${URI_PREFIX}/v1/object/subscription/${subscriptionObject.PreviousSubscriptionId}`, {
             crossDomain: true,
             dataType: "json",
+            jsonp: false,
             headers: {
                 apiAccessKeyId: $('#zuoraUsername').val(),
                 apiSecretAccessKey: $('#zuoraPassword').val(),
@@ -351,6 +352,7 @@
         $.ajax(`${URI_PREFIX}/v1/object/subscription/${subscriptionIdOfLatestVersion}`, {
             crossDomain: true,
             dataType: "json",
+            jsonp: false,
             headers: {
                 apiAccessKeyId: $('#zuoraUsername').val(),
                 apiSecretAccessKey: $('#zuoraPassword').val(),
@@ -370,6 +372,7 @@
         $.ajax(`${URI_PREFIX}/v1/subscriptions/${subId}`, {
             crossDomain: true,
             dataType: "json",
+            jsonp: false,
             headers: {
                 apiAccessKeyId: $('#zuoraUsername').val(),
                 apiSecretAccessKey: $('#zuoraPassword').val(),
@@ -384,6 +387,7 @@
         $.ajax(`${URI_PREFIX}/v1/subscriptions/${dataKeyOrSubId}`, {
             crossDomain: true,
             dataType: "json",
+            jsonp: false,
             headers: {
                 apiAccessKeyId: $('#zuoraUsername').val(),
                 apiSecretAccessKey: $('#zuoraPassword').val(),
