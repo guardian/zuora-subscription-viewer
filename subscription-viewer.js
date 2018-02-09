@@ -1,6 +1,6 @@
 (function () {
     
-    const URI_PREFIX = './v1'; //'https://rest.zuora.com/v1';
+    const URI_PREFIX = 'https://rest.zuora.com/v1';
     
     const dataFormat = 'YYYY-MM-DD';
     const dmm = 'D MMM';
