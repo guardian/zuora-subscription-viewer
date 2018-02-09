@@ -1,17 +1,19 @@
 (function () {
     
-    const URI_PREFIX = 'https://rest.zuora.com'; // '.'; //
+    const URI_PREFIX = 'https://rest.zuora.com/v1';
     
     const dataFormat = 'YYYY-MM-DD';
     const dmm = 'D MMM';
     const dmy = 'D MMMM Y';
     const dmyy = "D MMM 'YY";
+    const dmyhm = "D MMM 'YY \\a\\t HH:mm";
     const aTermHtml = '<td class="aTerm"></td>';
     const rpcHtml = '<div class="rpc"><div class="rpc-label"></div></div>';
-    const aDayPixelHtml = '<span class="aDay"></span>';
     const aTickHtml = '<span class="tick"></span>';
     const ticksRowHtml = '<tr class="ticks-row"><td class="ticks" colspan="3"></td></tr>';
     const legendRowHtml = '<tr class="legend-row"><td colspan="3"><div class="legend"></div></td></tr>';
+    const chargeLineHtml = '<tr class="charge-lines"></tr>';
+    const $aDayPixel = $('<span class="aDay"></span>'); // it's faster to clone than parse.
     const today = moment().startOf('day');
     const matchesHoliday = /holiday/i;
     const matchesDiscount = /discount|percentage|adjustment/i;
@@ -108,8 +110,7 @@
                 className = ''
             }
         }
-        const $aDay = $(aDayPixelHtml).attr('data-date', renderDate.format(dataFormat)).addClass(className);
-        $rpc.append($aDay)
+        return $aDayPixel.clone().attr('data-date', renderDate.format(dataFormat)).addClass(className);
     }
 
     function timelineHeaderHtml(subscription) {
@@ -129,17 +130,17 @@
         let renderDay = earliestRenderDay.clone();
         while (renderDay.isSameOrBefore(nextTermEndDate)) {
             let label = '';
-            let className = ''
+            let className = '';
             if (renderDay.isSame(today)) {
-                label = 'Today'
+                label = 'Today';
                 className = 'today'
             } else if (notableDates.has(renderDay.format(dataFormat))) {
                 label = renderDay.format(dmyy);
             }
             if (label) {
-                let borders = renderDay.isBefore(termStartDate) ? 1 : renderDay.isBefore(termEndDate) ? 2 : renderDay.isBefore(nextTermEndDate) ? 3 : 4
-                let days = renderDay.diff(earliestRenderDay, 'days')
-                let left = minimumOffset + days + borders
+                let borders = renderDay.isBefore(termStartDate) ? 1 : renderDay.isBefore(termEndDate) ? 2 : renderDay.isBefore(nextTermEndDate) ? 3 : 4;
+                let days = renderDay.diff(earliestRenderDay, 'days');
+                let left = minimumOffset + days + borders;
                 $ticks.append($(aTickHtml).addClass(className).offset({left: left}));
                 $legend.append(`<date style="left:${left - 1}px;z-index:${-left}" class="${className}">${label}</date>`);
             }
@@ -181,8 +182,8 @@
         const termStartDate = moment(subscription.termStartDate);
         const termEndDate = moment(subscription.termEndDate);
         const nextTermEndDate = termEndDate.clone().add(1, 'years');
-        const notableDates = extractNotableDates(subscription, nextTermEndDate)
-        const earliestRenderDay = moment(Array.from(notableDates.values()).sort()[0]).startOf('day')
+        const notableDates = extractNotableDates(subscription, nextTermEndDate);
+        const earliestRenderDay = moment(Array.from(notableDates.values()).sort()[0]).startOf('day');
         const preFirstTermLength = termStartDate.diff(earliestRenderDay, 'days');
         const currentTermLength = termEndDate.diff(termStartDate, 'days');
         const nextTermLength = nextTermEndDate.diff(termEndDate, 'days');
@@ -195,7 +196,7 @@
             const ratePlanCharges = ratePlan.ratePlanCharges.filter(filterOutChargesWithNoEffect(ratePlanIsRemoved)).sort(sortRatePlanCharges);
             if (ratePlanCharges.length === 0) return;
 
-            const $chargeLines = $('<tr class="charge-lines"></tr>');
+            const $chargeLines = $(chargeLineHtml);
             $products.push($chargeLines);
             let processedDays = 0;
 
@@ -209,7 +210,7 @@
                     const rpc = ratePlanCharges[p];
                     const isRefundable = !/membership/i.test(rpc.name);
                     const isHoliday = matchesHoliday.test(rpc.name);
-                    const isDiscount = rpcIsDiscount(rpc)
+                    const isDiscount = rpcIsDiscount(rpc);
                     const isNForN = matchesIssues.test(rpc.name);
 
                     const effectiveStartDate = moment(rpc.effectiveStartDate);
@@ -227,15 +228,17 @@
                     const addedText = effectiveStartDate.isSame(effectiveEndDate) ? ` [Added: ${effectiveStartDate.format(dmyy)}]` : '';
                     const removedText = ratePlanIsRemoved ? ` [Removed: ${effectiveEndDate.format(dmyy)}]` : '';
                     const rpcLabel = `${name} ${priceOrDiscount ? `(${priceOrDiscount})` : ''}${versionText}${addedText}${removedText}`;
+
                     const $rpc = $(rpcHtml).width(termLengthInDays);
                     if (isCurrentTerm) $rpc.find(".rpc-label").text(rpcLabel).attr('title', rpc.id);
 
-                    let timelineDaysPresented = processedDays;
+                    const pixels = [];
                     for (let i = 0; i < termLengthInDays; i++) {
-                        const renderDate = earliestRenderDay.clone().add(timelineDaysPresented, 'days');
-                        renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, holidayStartDate, holidayEndDate, isBeforeCurrentTerm, isCurrentTerm, isAfterCurrentTerm, isAutoRenew, isCancelled, isRefundable, isHoliday, isDiscount, isNForN, ratePlanIsRemoved);
-                        timelineDaysPresented++;
+                        const renderDate = earliestRenderDay.clone().add(i + processedDays, 'days');
+                        pixels.push(renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, holidayStartDate, holidayEndDate, isBeforeCurrentTerm, isCurrentTerm, isAfterCurrentTerm, isAutoRenew, isCancelled, isRefundable, isHoliday, isDiscount, isNForN, ratePlanIsRemoved));
                     }
+                    $rpc.append(pixels);
+
                     $chargeLineTerm.append($rpc);
                 }
                 processedDays += termLengthInDays;
@@ -331,102 +334,71 @@
         renderTimeline(subscription);
     }
 
-    function addToRocker(subscriptionObject) {
-        $('#versions').prepend(`<option value="${subscriptionObject.Id}">${subscriptionObject.Version}</option>`);
-        if (subscriptionObject.Id === subscriptionObject.OriginalId) return;
-
-        $.ajax(`${URI_PREFIX}/v1/object/subscription/${subscriptionObject.PreviousSubscriptionId}`, {
+    function getAjaxConfig() {
+        return {
             crossDomain: true,
-            dataType: "json",
+            dataType: 'json',
             jsonp: false,
             headers: {
                 apiAccessKeyId: $('#zuoraUsername').val(),
                 apiSecretAccessKey: $('#zuoraPassword').val(),
                 Accept: 'application/json'
             }
-        }).done(addToRocker);
+        };
     }
-
-    function renderRocker(subscriptionIdOfLatestVersion) {
-        if (!subscriptionIdOfLatestVersion) return;
-        $.ajax(`${URI_PREFIX}/v1/object/subscription/${subscriptionIdOfLatestVersion}`, {
-            crossDomain: true,
-            dataType: "json",
-            jsonp: false,
-            headers: {
-                apiAccessKeyId: $('#zuoraUsername').val(),
-                apiSecretAccessKey: $('#zuoraPassword').val(),
-                Accept: 'application/json'
-            }
-        }).done(latestSubscriptionObject => {
-            const isOriginal = latestSubscriptionObject.Id === latestSubscriptionObject.OriginalId
-            if (!isOriginal) {
+    
+    function fillRocker(subscriptionId) {
+        if (!subscriptionId) return;
+        $.ajax(`${URI_PREFIX}/object/subscription/${subscriptionId}`, getAjaxConfig()).done(subscriptionObject => {
+            $('#versions').prepend(`<option value="${subscriptionObject.Id}">${subscriptionObject.Version} [Created ${moment(subscriptionObject.CreatedDate).format(dmyhm)}]</option>`);
+            if (subscriptionObject.Id !== subscriptionObject.OriginalId && subscriptionObject.PreviousSubscriptionId) {
+                fillRocker(subscriptionObject.PreviousSubscriptionId);
                 $('#versionRocker').show();
-                addToRocker(latestSubscriptionObject);
             }
         });
     }
 
     function go(subId) {
         if (!subId) return;
-        $.ajax(`${URI_PREFIX}/v1/subscriptions/${subId}`, {
-            crossDomain: true,
-            dataType: "json",
-            jsonp: false,
-            headers: {
-                apiAccessKeyId: $('#zuoraUsername').val(),
-                apiSecretAccessKey: $('#zuoraPassword').val(),
-                Accept: 'application/json'
-            }
-        }).done(renderSubscription);
+        $.ajax(`${URI_PREFIX}/subscriptions/${subId}`, getAjaxConfig()).done(renderSubscription);
     }
-
 
     function start(dataKeyOrSubId) {
         if (!dataKeyOrSubId) return;
-        $.ajax(`${URI_PREFIX}/v1/subscriptions/${dataKeyOrSubId}`, {
-            crossDomain: true,
-            dataType: "json",
-            jsonp: false,
-            headers: {
-                apiAccessKeyId: $('#zuoraUsername').val(),
-                apiSecretAccessKey: $('#zuoraPassword').val(),
-                Accept: 'application/json'
-            }
-        }).done(subscription => {
+        $.ajax(`${URI_PREFIX}/subscriptions/${dataKeyOrSubId}`, getAjaxConfig()).done(subscription => {
             renderSubscription(subscription);
-            renderRocker(subscription.id);
+            fillRocker(subscription.id);
         });
     }
 
-    $(document).ready(function () {
+    $(document).ready(_ => {
         const backgroundStore = (chrome && chrome.extension) ? chrome.extension.getBackgroundPage().subscriptionViewerStore : {};
         const $loadSubscription = $('#loadSubscription');
         const $inputs = $loadSubscription.find('input');
-        const $selects = $('select');
-        $inputs.each(() => {
-            const $target = $(this);
+        const $versions = $('#versions');
+
+        $inputs.each((i, e) => {
+            const $target = $(e);
             const id = $target.attr('id');
             if (!id) return;
             $target.val(backgroundStore[id]);
         });
         $inputs.change(e => {
-            const $target = $(e.target);
+            const $target = $(e);
             const id = $target.attr('id');
             if (!id) return;
             backgroundStore[id] = $target.val();
         });
-        $selects.change(e => {
-            const $target = $(e.target);
-            const selectedSubscriptionId = $target.val();
+        $versions.change(e => {
+            const selectedSubscriptionId = $(e.target).val();
             if (!selectedSubscriptionId) return;
             go(selectedSubscriptionId);
-        })
+        });
         $loadSubscription.submit(e => {
             e.stopPropagation();
             e.preventDefault();
             $('#versionRocker').hide();
-            const subscriptionId = $(this).find('#subscriptionId').val();
+            const subscriptionId = $('#subscriptionId').val();
             if (window.cannedData && window.cannedData[subscriptionId]) {
                 renderSubscription(window.cannedData[subscriptionId]);
             } else {
