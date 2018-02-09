@@ -1,18 +1,12 @@
 (function () {
     
-    const URI_PREFIX = 'https://rest.zuora.com/v1';
+    const URI_PREFIX = './v1'; //'https://rest.zuora.com/v1';
     
     const dataFormat = 'YYYY-MM-DD';
     const dmm = 'D MMM';
     const dmy = 'D MMMM Y';
     const dmyy = "D MMM 'YY";
     const dmyhm = "D MMM 'YY \\a\\t HH:mm";
-    const aTermHtml = '<td class="aTerm"></td>';
-    const rpcHtml = '<div class="rpc"><div class="rpc-label"></div></div>';
-    const aTickHtml = '<span class="tick"></span>';
-    const ticksRowHtml = '<tr class="ticks-row"><td class="ticks" colspan="3"></td></tr>';
-    const legendRowHtml = '<tr class="legend-row"><td colspan="3"><div class="legend"></div></td></tr>';
-    const chargeLineHtml = '<tr class="charge-lines"></tr>';
     const $aDayPixel = $('<span class="aDay"></span>'); // it's faster to clone than parse.
     const today = moment().startOf('day');
     const matchesHoliday = /holiday/i;
@@ -121,9 +115,9 @@
     }
 
     function legendHtml(earliestRenderDay, notableDates, termStartDate, termEndDate, nextTermEndDate) {
-        const $ticksRow = $(ticksRowHtml);
+        const $ticksRow = $('<tr class="ticks-row"><td class="ticks" colspan="3"></td></tr>');
         const $ticks = $ticksRow.find('.ticks');
-        const $legendRow = $(legendRowHtml);
+        const $legendRow = $('<tr class="legend-row"><td colspan="3"><div class="legend"></div></td></tr>');
         const $legend = $legendRow.find('.legend');
         const minimumOffset = earliestRenderDay.isBefore(termStartDate) ? 0 : 22; // 22 == width of &hellip;
 
@@ -141,7 +135,7 @@
                 let borders = renderDay.isBefore(termStartDate) ? 1 : renderDay.isBefore(termEndDate) ? 2 : renderDay.isBefore(nextTermEndDate) ? 3 : 4;
                 let days = renderDay.diff(earliestRenderDay, 'days');
                 let left = minimumOffset + days + borders;
-                $ticks.append($(aTickHtml).addClass(className).offset({left: left}));
+                $ticks.append($('<span class="tick"></span>').addClass(className).offset({left: left}));
                 $legend.append(`<date style="left:${left - 1}px;z-index:${-left}" class="${className}">${label}</date>`);
             }
             renderDay.add(1, 'day');
@@ -171,12 +165,6 @@
     }
 
     function renderTimeline(subscription) {
-        const $multiTermGrid = $('#multi-term-grid');
-        if ($multiTermGrid.length === 0) return;
-
-        $multiTermGrid.html('');
-        $multiTermGrid.append(timelineHeaderHtml(subscription));
-
         const isAutoRenew = subscription.autoRenew;
         const isCancelled = subscription.status === 'Cancelled';
         const termStartDate = moment(subscription.termStartDate);
@@ -191,18 +179,18 @@
         const ratePlans = subscription.ratePlans.sort(sortRatePlans);
         const $products = [];
 
-        ratePlans.forEach(function(ratePlan) {
+        ratePlans.forEach((ratePlan) => {
             const ratePlanIsRemoved = ratePlan.lastChangeType === 'Remove';
             const ratePlanCharges = ratePlan.ratePlanCharges.filter(filterOutChargesWithNoEffect(ratePlanIsRemoved)).sort(sortRatePlanCharges);
             if (ratePlanCharges.length === 0) return;
 
-            const $chargeLines = $(chargeLineHtml);
+            const $chargeLines = $('<tr class="charge-lines"></tr>');
             $products.push($chargeLines);
             let processedDays = 0;
 
             for (let y = 0; y <= 2; y++) {
                 const termLengthInDays = termLengths[y];
-                const $chargeLineTerm = $(aTermHtml).addClass(`term${y}`);
+                const $chargeLineTerm = $('<td class="aTerm"></td>').addClass(`term${y}`);
                 const isBeforeCurrentTerm = (y < 1);
                 const isCurrentTerm = (y === 1);
                 const isAfterCurrentTerm = (y > 1);
@@ -229,7 +217,7 @@
                     const removedText = ratePlanIsRemoved ? ` [Removed: ${effectiveEndDate.format(dmyy)}]` : '';
                     const rpcLabel = `${name} ${priceOrDiscount ? `(${priceOrDiscount})` : ''}${versionText}${addedText}${removedText}`;
 
-                    const $rpc = $(rpcHtml).width(termLengthInDays);
+                    const $rpc = $('<div class="rpc"><div class="rpc-label"></div></div>').width(termLengthInDays);
                     if (isCurrentTerm) $rpc.find(".rpc-label").text(rpcLabel).attr('title', rpc.id);
 
                     const pixels = [];
@@ -245,15 +233,15 @@
                 $chargeLines.append($chargeLineTerm);
             }
         });
+
+        const $multiTermGrid = $('#multi-term-grid');
+        $multiTermGrid.html('');
+        $multiTermGrid.append(timelineHeaderHtml(subscription));
         $multiTermGrid.append($products);
         $multiTermGrid.append(legendHtml(earliestRenderDay, notableDates, termStartDate, termEndDate, nextTermEndDate));
     }
 
     function renderCurrentTerm(subscription) {
-        const $currentTerm =  $('#currentTerm');
-        if ($currentTerm.length === 0) return;
-        $currentTerm.html('');
-
         const currentTermStartDate = moment(subscription.termStartDate);
         const chargedThroughDates = subscription.ratePlans.filter(filterOutDiscountsAndAdjustments).flatMap(rp => rp.ratePlanCharges.map(rpc => rpc.chargedThroughDate)).sort();
         const earliestChargedThroughDate = moment(chargedThroughDates[0]);
@@ -264,7 +252,6 @@
         const dayOrDays = Math.abs(remainingDays) === 1 ? 'day' : 'days';
         const hourOrHours = Math.abs(remainingHours) === 1 ? 'hour' : 'hours';
 
-        const header = '<h3>Current term</h3>';
         const termStartDateHtml = `<div>Start date: <date>${currentTermStartDate.format(dmy)}</date></div>`;
         const termDurationHtml = `<div>Duration: ${subscription.currentTerm} ${subscription.currentTermPeriodType}s (${termDuration} days)</div>`;
 
@@ -287,14 +274,11 @@
                 }
             }
         }
-        $currentTerm.append(header, termStartDateHtml, termDurationHtml, nextPaymentDate, termEndDateHtml, remainingHtml);
+
+        $('#currentTerm').html('<h3>Current term</h3>').append(termStartDateHtml, termDurationHtml, nextPaymentDate, termEndDateHtml, remainingHtml);
     }
 
     function renderSubscriptionDetails(subscription) {
-        const $details = $('#details');
-        if ($details.length === 0) return;
-        $details.html('<h3>Details</h3>');
-
         const contractEffectiveDate = `<div>Contract effective / acquisition date: <date>${moment(subscription.contractEffectiveDate).format(dmy)}</date></div>`;
         const subscriptionStartDate = `<div>Subscription start / migration date: <date>${moment(subscription.subscriptionStartDate).format(dmy)}</date></div>`;
         const firstPaymentDate = `<div>First payment date: <date>${moment(subscription.customerAcceptanceDate).format(dmy)}</date></div>`;
@@ -306,14 +290,10 @@
         const promoCode = subscription.PromotionCode__c ? `<div>${subscription.InitialPromotionCode__c ? 'Renewal promo' : 'Promo'} code: ${subscription.PromotionCode__c}</div>` : '';
         const supplierCode = subscription.SupplierCode__c ? `<div>Supplier code: ${subscription.SupplierCode__c}</div>` : '';
 
-        $details.append(contractEffectiveDate, subscriptionStartDate, firstPaymentDate, customerAcceptanceDate, activationDate, readerType, initialPromoCode, promoCode, supplierCode);
+        $('#details').html('<h3>Details</h3>').append(contractEffectiveDate, subscriptionStartDate, firstPaymentDate, customerAcceptanceDate, activationDate, readerType, initialPromoCode, promoCode, supplierCode);
     }
 
     function renderHeading(subscription) {
-        const $heading = $('#heading');
-        if ($heading.length === 0) return;
-
-        const $h2 = $('<h2></h2>');
         const termEndDate = moment(subscription.termEndDate);
         const isCancelled = subscription.status === 'Cancelled';
         const status = (today.isSameOrAfter(termEndDate) && !isCancelled) ? 'Lapsed' : subscription.status;
@@ -322,9 +302,7 @@
         const accountHtml = `<div class="heading-segment">Account: ${subscription.accountName}${(subscription.accountNumber !== subscription.accountName) ? ` (#${subscription.accountNumber})` : ''}</div>`;
         const statusHtml = `<div class="heading-segment">Status: <span class="${status.toLowerCase()}">${status}</span></div>`;
 
-        $h2.append(subscriptionHtml, accountHtml, statusHtml);
-
-        $heading.html($h2)
+        $('#heading').html('').append(subscriptionHtml, accountHtml, statusHtml);
     }
 
     function renderSubscription(subscription) {
@@ -336,9 +314,7 @@
 
     function getAjaxConfig() {
         return {
-            crossDomain: true,
             dataType: 'json',
-            jsonp: false,
             headers: {
                 apiAccessKeyId: $('#zuoraUsername').val(),
                 apiSecretAccessKey: $('#zuoraPassword').val(),
@@ -398,6 +374,7 @@
             e.stopPropagation();
             e.preventDefault();
             $('#versionRocker').hide();
+            $versions.html('');
             const subscriptionId = $('#subscriptionId').val();
             if (window.cannedData && window.cannedData[subscriptionId]) {
                 renderSubscription(window.cannedData[subscriptionId]);
