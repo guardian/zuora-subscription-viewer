@@ -360,7 +360,7 @@
             $target.val(backgroundStore[id]);
         });
         $inputs.change(e => {
-            const $target = $(e);
+            const $target = $(e.target);
             const id = $target.attr('id');
             if (!id) return;
             backgroundStore[id] = $target.val();

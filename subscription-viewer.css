@@ -27,6 +27,10 @@ form {
     overflow: hidden;
 }
 
+legend {
+    font-weight: bold;
+}
+
 fieldset {
     border: 1px solid #cccccc;
     float: left;
@@ -34,12 +38,17 @@ fieldset {
     margin-right: 20px;
 }
 
+input {
+    font-size: 16px;
+    line-height: 140%;
+}
+
 .caption {
     font-size: small;
     font-style: italic;
     line-height: 150%;
     margin-top: 10px;
-    width: 370px;
+    width: 360px;
 }
 table {
     border-collapse: collapse;
