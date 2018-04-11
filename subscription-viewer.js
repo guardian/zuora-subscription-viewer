@@ -21,7 +21,7 @@
     };
 
     function filterOutDiscountsAndAdjustments(rp) {
-        return matchesDiscount.test(rp.productName) || matchesDiscount.test(rp.ratePlanName);
+        return !(matchesDiscount.test(rp.productName) || matchesDiscount.test(rp.ratePlanName));
     }
 
     function rpcIsDiscount(rpc) {
