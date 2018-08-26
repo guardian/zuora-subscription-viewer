@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <title>Subscription viewer</title>
     <link rel="stylesheet" href="subscription-viewer.css"/>
-    <script src="jquery-3.2.1.js"></script>
-    <script src="moment.js"></script>
+    <script src="jquery-3.3.1.min.js"></script>
+    <script src="moment.min.js"></script>
     <script src="subscription-viewer.js"></script>
-    <script src="cannedDataForTheTrain.js"></script>
+    <script src="v1/cannedDataForTheTrain.js"></script>
 </head>
 <body>
 <form id="loadSubscription" action="#" method="POST">
@@ -15,25 +15,25 @@
         <legend>Zuora login details</legend>
         <div>
             <label for="zuoraUsername"><code>Username:</code></label>
-            <input id="zuoraUsername" type="text"/>
+            <input id="zuoraUsername" size="35" type="text"/>
         </div>
         <div>
             <label for="zuoraPassword"><code>Password:</code></label>
-            <input id="zuoraPassword" type="password"/>
+            <input id="zuoraPassword" size="35" type="password"/>
         </div>
         <div class="caption">Your login details will not be sent anywhere except securely to Zuora to authenticate the lookup request.</div>
     </fieldset>
     <fieldset>
-        <legend>Lookup:</legend>
+        <legend>Lookup</legend>
         <label for="subscriptionId">Subscription ID:</label>
-        <input id="subscriptionId" type="text"/>
-        <input type="submit" value="Process">
+        <input id="subscriptionId" size="15" type="text"/>
+        <input type="submit" value="Go!">
     </fieldset>
 </form>
 <section id="subscription">
     <section id="textualisation">
-        <div id="heading">
-        </div>
+        <h2 id="heading">
+        </h2>
         <div id="versionRocker">
             <div class="heading-segment">
                 <label for="subscriptionId">Version:</label>

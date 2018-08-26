@@ -1,17 +1,13 @@
 (function () {
     
-    const URI_PREFIX = 'https://rest.zuora.com'; // '.'; //
+    const URI_PREFIX = 'https://rest.zuora.com/v1';
     
     const dataFormat = 'YYYY-MM-DD';
     const dmm = 'D MMM';
     const dmy = 'D MMMM Y';
     const dmyy = "D MMM 'YY";
-    const aTermHtml = '<td class="aTerm"></td>';
-    const rpcHtml = '<div class="rpc"><div class="rpc-label"></div></div>';
-    const aDayPixelHtml = '<span class="aDay"></span>';
-    const aTickHtml = '<span class="tick"></span>';
-    const ticksRowHtml = '<tr class="ticks-row"><td class="ticks" colspan="3"></td></tr>';
-    const legendRowHtml = '<tr class="legend-row"><td colspan="3"><div class="legend"></div></td></tr>';
+    const dmyhm = "D MMM 'YY \\a\\t HH:mm";
+    const $aDayPixel = $('<span class="aDay"></span>'); // it's faster to clone than parse.
     const today = moment().startOf('day');
     const matchesHoliday = /holiday/i;
     const matchesDiscount = /discount|percentage|adjustment/i;
@@ -25,7 +21,7 @@
     };
 
     function filterOutDiscountsAndAdjustments(rp) {
-        return matchesDiscount.test(rp.productName) || matchesDiscount.test(rp.ratePlanName);
+        return !(matchesDiscount.test(rp.productName) || matchesDiscount.test(rp.ratePlanName));
     }
 
     function rpcIsDiscount(rpc) {
@@ -108,8 +104,7 @@
                 className = ''
             }
         }
-        const $aDay = $(aDayPixelHtml).attr('data-date', renderDate.format(dataFormat)).addClass(className);
-        $rpc.append($aDay)
+        return $aDayPixel.clone().attr('data-date', renderDate.format(dataFormat)).addClass(className);
     }
 
     function timelineHeaderHtml(subscription) {
@@ -120,27 +115,27 @@
     }
 
     function legendHtml(earliestRenderDay, notableDates, termStartDate, termEndDate, nextTermEndDate) {
-        const $ticksRow = $(ticksRowHtml);
+        const $ticksRow = $('<tr class="ticks-row"><td class="ticks" colspan="3"></td></tr>');
         const $ticks = $ticksRow.find('.ticks');
-        const $legendRow = $(legendRowHtml);
+        const $legendRow = $('<tr class="legend-row"><td colspan="3"><div class="legend"></div></td></tr>');
         const $legend = $legendRow.find('.legend');
         const minimumOffset = earliestRenderDay.isBefore(termStartDate) ? 0 : 22; // 22 == width of &hellip;
 
         let renderDay = earliestRenderDay.clone();
         while (renderDay.isSameOrBefore(nextTermEndDate)) {
             let label = '';
-            let className = ''
+            let className = '';
             if (renderDay.isSame(today)) {
-                label = 'Today'
+                label = 'Today';
                 className = 'today'
             } else if (notableDates.has(renderDay.format(dataFormat))) {
                 label = renderDay.format(dmyy);
             }
             if (label) {
-                let borders = renderDay.isBefore(termStartDate) ? 1 : renderDay.isBefore(termEndDate) ? 2 : renderDay.isBefore(nextTermEndDate) ? 3 : 4
-                let days = renderDay.diff(earliestRenderDay, 'days')
-                let left = minimumOffset + days + borders
-                $ticks.append($(aTickHtml).addClass(className).offset({left: left}));
+                let borders = renderDay.isBefore(termStartDate) ? 1 : renderDay.isBefore(termEndDate) ? 2 : renderDay.isBefore(nextTermEndDate) ? 3 : 4;
+                let days = renderDay.diff(earliestRenderDay, 'days');
+                let left = minimumOffset + days + borders;
+                $ticks.append($('<span class="tick"></span>').addClass(className).offset({left: left}));
                 $legend.append(`<date style="left:${left - 1}px;z-index:${-left}" class="${className}">${label}</date>`);
             }
             renderDay.add(1, 'day');
@@ -170,19 +165,13 @@
     }
 
     function renderTimeline(subscription) {
-        const $multiTermGrid = $('#multi-term-grid');
-        if ($multiTermGrid.length === 0) return;
-
-        $multiTermGrid.html('');
-        $multiTermGrid.append(timelineHeaderHtml(subscription));
-
         const isAutoRenew = subscription.autoRenew;
         const isCancelled = subscription.status === 'Cancelled';
         const termStartDate = moment(subscription.termStartDate);
         const termEndDate = moment(subscription.termEndDate);
         const nextTermEndDate = termEndDate.clone().add(1, 'years');
-        const notableDates = extractNotableDates(subscription, nextTermEndDate)
-        const earliestRenderDay = moment(Array.from(notableDates.values()).sort()[0]).startOf('day')
+        const notableDates = extractNotableDates(subscription, nextTermEndDate);
+        const earliestRenderDay = moment(Array.from(notableDates.values()).sort()[0]).startOf('day');
         const preFirstTermLength = termStartDate.diff(earliestRenderDay, 'days');
         const currentTermLength = termEndDate.diff(termStartDate, 'days');
         const nextTermLength = nextTermEndDate.diff(termEndDate, 'days');
@@ -190,7 +179,7 @@
         const ratePlans = subscription.ratePlans.sort(sortRatePlans);
         const $products = [];
 
-        ratePlans.forEach(function(ratePlan) {
+        ratePlans.forEach((ratePlan) => {
             const ratePlanIsRemoved = ratePlan.lastChangeType === 'Remove';
             const ratePlanCharges = ratePlan.ratePlanCharges.filter(filterOutChargesWithNoEffect(ratePlanIsRemoved)).sort(sortRatePlanCharges);
             if (ratePlanCharges.length === 0) return;
@@ -201,7 +190,7 @@
 
             for (let y = 0; y <= 2; y++) {
                 const termLengthInDays = termLengths[y];
-                const $chargeLineTerm = $(aTermHtml).addClass(`term${y}`);
+                const $chargeLineTerm = $('<td class="aTerm"></td>').addClass(`term${y}`);
                 const isBeforeCurrentTerm = (y < 1);
                 const isCurrentTerm = (y === 1);
                 const isAfterCurrentTerm = (y > 1);
@@ -209,7 +198,7 @@
                     const rpc = ratePlanCharges[p];
                     const isRefundable = !/membership/i.test(rpc.name);
                     const isHoliday = matchesHoliday.test(rpc.name);
-                    const isDiscount = rpcIsDiscount(rpc)
+                    const isDiscount = rpcIsDiscount(rpc);
                     const isNForN = matchesIssues.test(rpc.name);
 
                     const effectiveStartDate = moment(rpc.effectiveStartDate);
@@ -227,30 +216,32 @@
                     const addedText = effectiveStartDate.isSame(effectiveEndDate) ? ` [Added: ${effectiveStartDate.format(dmyy)}]` : '';
                     const removedText = ratePlanIsRemoved ? ` [Removed: ${effectiveEndDate.format(dmyy)}]` : '';
                     const rpcLabel = `${name} ${priceOrDiscount ? `(${priceOrDiscount})` : ''}${versionText}${addedText}${removedText}`;
-                    const $rpc = $(rpcHtml).width(termLengthInDays);
+
+                    const $rpc = $('<div class="rpc"><div class="rpc-label"></div></div>').width(termLengthInDays);
                     if (isCurrentTerm) $rpc.find(".rpc-label").text(rpcLabel).attr('title', rpc.id);
 
-                    let timelineDaysPresented = processedDays;
+                    const pixels = [];
                     for (let i = 0; i < termLengthInDays; i++) {
-                        const renderDate = earliestRenderDay.clone().add(timelineDaysPresented, 'days');
-                        renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, holidayStartDate, holidayEndDate, isBeforeCurrentTerm, isCurrentTerm, isAfterCurrentTerm, isAutoRenew, isCancelled, isRefundable, isHoliday, isDiscount, isNForN, ratePlanIsRemoved);
-                        timelineDaysPresented++;
+                        const renderDate = earliestRenderDay.clone().add(i + processedDays, 'days');
+                        pixels.push(renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, holidayStartDate, holidayEndDate, isBeforeCurrentTerm, isCurrentTerm, isAfterCurrentTerm, isAutoRenew, isCancelled, isRefundable, isHoliday, isDiscount, isNForN, ratePlanIsRemoved));
                     }
+                    $rpc.append(pixels);
+
                     $chargeLineTerm.append($rpc);
                 }
                 processedDays += termLengthInDays;
                 $chargeLines.append($chargeLineTerm);
             }
         });
+
+        const $multiTermGrid = $('#multi-term-grid');
+        $multiTermGrid.html('');
+        $multiTermGrid.append(timelineHeaderHtml(subscription));
         $multiTermGrid.append($products);
         $multiTermGrid.append(legendHtml(earliestRenderDay, notableDates, termStartDate, termEndDate, nextTermEndDate));
     }
 
     function renderCurrentTerm(subscription) {
-        const $currentTerm =  $('#currentTerm');
-        if ($currentTerm.length === 0) return;
-        $currentTerm.html('');
-
         const currentTermStartDate = moment(subscription.termStartDate);
         const chargedThroughDates = subscription.ratePlans.filter(filterOutDiscountsAndAdjustments).flatMap(rp => rp.ratePlanCharges.map(rpc => rpc.chargedThroughDate)).sort();
         const earliestChargedThroughDate = moment(chargedThroughDates[0]);
@@ -261,7 +252,6 @@
         const dayOrDays = Math.abs(remainingDays) === 1 ? 'day' : 'days';
         const hourOrHours = Math.abs(remainingHours) === 1 ? 'hour' : 'hours';
 
-        const header = '<h3>Current term</h3>';
         const termStartDateHtml = `<div>Start date: <date>${currentTermStartDate.format(dmy)}</date></div>`;
         const termDurationHtml = `<div>Duration: ${subscription.currentTerm} ${subscription.currentTermPeriodType}s (${termDuration} days)</div>`;
 
@@ -284,14 +274,11 @@
                 }
             }
         }
-        $currentTerm.append(header, termStartDateHtml, termDurationHtml, nextPaymentDate, termEndDateHtml, remainingHtml);
+
+        $('#currentTerm').html('<h3>Current term</h3>').append(termStartDateHtml, termDurationHtml, nextPaymentDate, termEndDateHtml, remainingHtml);
     }
 
     function renderSubscriptionDetails(subscription) {
-        const $details = $('#details');
-        if ($details.length === 0) return;
-        $details.html('<h3>Details</h3>');
-
         const contractEffectiveDate = `<div>Contract effective / acquisition date: <date>${moment(subscription.contractEffectiveDate).format(dmy)}</date></div>`;
         const subscriptionStartDate = `<div>Subscription start / migration date: <date>${moment(subscription.subscriptionStartDate).format(dmy)}</date></div>`;
         const firstPaymentDate = `<div>First payment date: <date>${moment(subscription.customerAcceptanceDate).format(dmy)}</date></div>`;
@@ -303,14 +290,10 @@
         const promoCode = subscription.PromotionCode__c ? `<div>${subscription.InitialPromotionCode__c ? 'Renewal promo' : 'Promo'} code: ${subscription.PromotionCode__c}</div>` : '';
         const supplierCode = subscription.SupplierCode__c ? `<div>Supplier code: ${subscription.SupplierCode__c}</div>` : '';
 
-        $details.append(contractEffectiveDate, subscriptionStartDate, firstPaymentDate, customerAcceptanceDate, activationDate, readerType, initialPromoCode, promoCode, supplierCode);
+        $('#details').html('<h3>Details</h3>').append(contractEffectiveDate, subscriptionStartDate, firstPaymentDate, customerAcceptanceDate, activationDate, readerType, initialPromoCode, promoCode, supplierCode);
     }
 
     function renderHeading(subscription) {
-        const $heading = $('#heading');
-        if ($heading.length === 0) return;
-
-        const $h2 = $('<h2></h2>');
         const termEndDate = moment(subscription.termEndDate);
         const isCancelled = subscription.status === 'Cancelled';
         const status = (today.isSameOrAfter(termEndDate) && !isCancelled) ? 'Lapsed' : subscription.status;
@@ -319,9 +302,7 @@
         const accountHtml = `<div class="heading-segment">Account: ${subscription.accountName}${(subscription.accountNumber !== subscription.accountName) ? ` (#${subscription.accountNumber})` : ''}</div>`;
         const statusHtml = `<div class="heading-segment">Status: <span class="${status.toLowerCase()}">${status}</span></div>`;
 
-        $h2.append(subscriptionHtml, accountHtml, statusHtml);
-
-        $heading.html($h2)
+        $('#heading').html('').append(subscriptionHtml, accountHtml, statusHtml);
     }
 
     function renderSubscription(subscription) {
@@ -331,81 +312,49 @@
         renderTimeline(subscription);
     }
 
-    function addToRocker(subscriptionObject) {
-        $('#versions').prepend(`<option value="${subscriptionObject.Id}">${subscriptionObject.Version}</option>`);
-        if (subscriptionObject.Id === subscriptionObject.OriginalId) return;
-
-        $.ajax(`${URI_PREFIX}/v1/object/subscription/${subscriptionObject.PreviousSubscriptionId}`, {
-            crossDomain: true,
-            dataType: "json",
-            jsonp: false,
+    function getAjaxConfig() {
+        return {
+            dataType: 'json',
             headers: {
                 apiAccessKeyId: $('#zuoraUsername').val(),
                 apiSecretAccessKey: $('#zuoraPassword').val(),
                 Accept: 'application/json'
             }
-        }).done(addToRocker);
+        };
     }
-
-    function renderRocker(subscriptionIdOfLatestVersion) {
-        if (!subscriptionIdOfLatestVersion) return;
-        $.ajax(`${URI_PREFIX}/v1/object/subscription/${subscriptionIdOfLatestVersion}`, {
-            crossDomain: true,
-            dataType: "json",
-            jsonp: false,
-            headers: {
-                apiAccessKeyId: $('#zuoraUsername').val(),
-                apiSecretAccessKey: $('#zuoraPassword').val(),
-                Accept: 'application/json'
-            }
-        }).done(latestSubscriptionObject => {
-            const isOriginal = latestSubscriptionObject.Id === latestSubscriptionObject.OriginalId
-            if (!isOriginal) {
+    
+    function fillRocker(subscriptionId) {
+        if (!subscriptionId) return;
+        $.ajax(`${URI_PREFIX}/object/subscription/${subscriptionId}`, getAjaxConfig()).done(subscriptionObject => {
+            $('#versions').prepend(`<option value="${subscriptionObject.Id}">${subscriptionObject.Version} [Created ${moment(subscriptionObject.CreatedDate).format(dmyhm)}]</option>`);
+            if (subscriptionObject.Id !== subscriptionObject.OriginalId && subscriptionObject.PreviousSubscriptionId) {
+                fillRocker(subscriptionObject.PreviousSubscriptionId);
                 $('#versionRocker').show();
-                addToRocker(latestSubscriptionObject);
             }
         });
     }
 
     function go(subId) {
         if (!subId) return;
-        $.ajax(`${URI_PREFIX}/v1/subscriptions/${subId}`, {
-            crossDomain: true,
-            dataType: "json",
-            jsonp: false,
-            headers: {
-                apiAccessKeyId: $('#zuoraUsername').val(),
-                apiSecretAccessKey: $('#zuoraPassword').val(),
-                Accept: 'application/json'
-            }
-        }).done(renderSubscription);
+        $.ajax(`${URI_PREFIX}/subscriptions/${subId}`, getAjaxConfig()).done(renderSubscription);
     }
-
 
     function start(dataKeyOrSubId) {
         if (!dataKeyOrSubId) return;
-        $.ajax(`${URI_PREFIX}/v1/subscriptions/${dataKeyOrSubId}`, {
-            crossDomain: true,
-            dataType: "json",
-            jsonp: false,
-            headers: {
-                apiAccessKeyId: $('#zuoraUsername').val(),
-                apiSecretAccessKey: $('#zuoraPassword').val(),
-                Accept: 'application/json'
-            }
-        }).done(subscription => {
+        $.ajax(`${URI_PREFIX}/subscriptions/${dataKeyOrSubId}`, getAjaxConfig()).done(subscription => {
             renderSubscription(subscription);
-            renderRocker(subscription.id);
+            fillRocker(subscription.id);
         });
     }
 
-    $(document).ready(function () {
+    $(document).ready(_ => {
         const backgroundStore = (chrome && chrome.extension) ? chrome.extension.getBackgroundPage().subscriptionViewerStore : {};
         const $loadSubscription = $('#loadSubscription');
         const $inputs = $loadSubscription.find('input');
-        const $selects = $('select');
-        $inputs.each(() => {
-            const $target = $(this);
+        const $versions = $('#versions');
+
+        $inputs.each((i, e) => {
+            const $target = $(e);
             const id = $target.attr('id');
             if (!id) return;
             $target.val(backgroundStore[id]);
@@ -416,17 +365,17 @@
             if (!id) return;
             backgroundStore[id] = $target.val();
         });
-        $selects.change(e => {
-            const $target = $(e.target);
-            const selectedSubscriptionId = $target.val();
+        $versions.change(e => {
+            const selectedSubscriptionId = $(e.target).val();
             if (!selectedSubscriptionId) return;
             go(selectedSubscriptionId);
-        })
+        });
         $loadSubscription.submit(e => {
             e.stopPropagation();
             e.preventDefault();
             $('#versionRocker').hide();
-            const subscriptionId = $(this).find('#subscriptionId').val();
+            $versions.html('');
+            const subscriptionId = $('#subscriptionId').val();
             if (window.cannedData && window.cannedData[subscriptionId]) {
                 renderSubscription(window.cannedData[subscriptionId]);
             } else {

@@ -1,5 +1,7 @@
 .idea
 subscription-viewer.iml
+subscription-viewer.crx
+subscription-viewer.pem
 cannedDataForTheTrain.js
 Archive.zip
 v1/*
