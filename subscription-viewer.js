@@ -46,6 +46,14 @@
         return dateA.localeCompare(dateB);
     }
 
+    function determineCurrency(subscription) {
+        if (subscription.ratePlans && subscription.ratePlans[0] && subscription.ratePlans[0].ratePlanCharges && subscription.ratePlans[0].ratePlanCharges[0]) {
+            return subscription.ratePlans[0].ratePlanCharges[0].currency;
+        } else {
+            return 'GBP';
+        }
+    }
+
     function renderRatePlanChargeDay($rpc, renderDate, effectiveStartDate, chargedThroughDate, effectiveEndDate, holidayStartDate, holidayEndDate, isBeforeCurrentTerm, isCurrentTerm, isAfterCurrentTerm, isAutoRenewing, isCancelled, isRefundable, isHoliday, isDiscount, isNForN, ratePlanIsRemoved) {
         const hasNoEffectivePeriod = effectiveStartDate.isSame(effectiveEndDate);
         const isWaiting = !isHoliday && renderDate.isBefore(effectiveStartDate);
@@ -209,7 +217,7 @@
 
                     const holidayDuration = holidayEndDate.diff(holidayStartDate, 'days') + 1 ; // +1 as the holidayEndDate date is inclusive
                     const holidayDurationText = `[${holidayStartDate.format(dmm)}${holidayDuration !== 1 ? `–${holidayEndDate.format(dmm)}` : ''}]`;
-                    const name = rpc.name.replace("Credit", holidayDurationText).replace('Percentage', 'Discount');
+                    const name = rpc.name.replace('Credit', holidayDurationText).replace('Percentage', 'Discount').replace(`- ${rpc.billingPeriod}`, '');
                     const period = `${rpc.endDateCondition === "Subscription_End" ? ` / ${rpc.billingPeriod}` : ''}`;
                     const priceOrDiscount = (rpc.price !== null) ? `${rpc.price.toFixed(2)} ${rpc.currency}${period}` : rpc.discountPercentage ? `${rpc.discountPercentage}%` : '';
                     const versionText = rpc.version > 1 ? ` [v${rpc.version}]` : '';
@@ -254,12 +262,14 @@
 
         const termStartDateHtml = `<div>Start date: <date>${currentTermStartDate.format(dmy)}</date></div>`;
         const termDurationHtml = `<div>Duration: ${subscription.currentTerm} ${subscription.currentTermPeriodType}s (${termDuration} days)</div>`;
+        const promoCode = subscription.PromotionCode__c ? `<div>${subscription.InitialPromotionCode__c ? 'Renewal promo' : 'Promo'} code: ${subscription.PromotionCode__c}</div>` : '';
 
         let nextPaymentDate;
         let termEndDateHtml;
         let remainingHtml;
         if (subscription.status === 'Cancelled') {
-            termEndDateHtml = `<div><strong>Cancelled</strong>: <date>${moment(subscription.termEndDate).format(dmy)}</date></div>`;
+            const termEndMoment = moment(subscription.termEndDate);
+            termEndDateHtml = `<div><strong>${termEndMoment.isSameOrBefore(today) ? 'Ended' : 'Ends'} on</strong>: <date>${termEndMoment.format(dmy)}</date></div>`;
         } else if (subscription.autoRenew) {
             nextPaymentDate = `<div><b>Next payment date</b>: <date>${earliestChargedThroughDate.format(dmy)}</date></div>`;
             termEndDateHtml = `<div>Next term starts: <date>${termEndDate.format(dmy)} (${remainingDays ? remainingDays + ` ${dayOrDays}` : remainingHours + ` ${hourOrHours}`})</date></div>`;
@@ -275,22 +285,26 @@
             }
         }
 
-        $('#currentTerm').html('<h3>Current term</h3>').append(termStartDateHtml, termDurationHtml, nextPaymentDate, termEndDateHtml, remainingHtml);
+        $('#currentTerm').html('<h3>Current term</h3>').append(termStartDateHtml, termDurationHtml, nextPaymentDate, promoCode, termEndDateHtml, remainingHtml);
     }
 
     function renderSubscriptionDetails(subscription) {
-        const contractEffectiveDate = `<div>Contract effective / acquisition date: <date>${moment(subscription.contractEffectiveDate).format(dmy)}</date></div>`;
+        const contractEffectiveDateMoment = moment(subscription.contractEffectiveDate);
+        const contractEffectiveDate = `<div>Contract effective / acquisition date: <date>${contractEffectiveDateMoment.format(dmy)}</date></div>`;
+        const tenure = `<div>Tenure: ${today.diff(contractEffectiveDateMoment, 'day')} days</div>`;
         const subscriptionStartDate = `<div>Subscription start / migration date: <date>${moment(subscription.subscriptionStartDate).format(dmy)}</date></div>`;
         const firstPaymentDate = `<div>First payment date: <date>${moment(subscription.customerAcceptanceDate).format(dmy)}</date></div>`;
         const customerAcceptanceDate = `<div>Customer acceptance date: <date>${moment(subscription.customerAcceptanceDate).format(dmy)}</date></div>`;
         const activationDate = subscription.ActivationDate__c ? `<div>CAS Activation Date: ${moment(subscription.ActivationDate__c).format(dmy)}</div>` : '';
 
+        const currency = determineCurrency(subscription);
+        const contractedMRR = `<div>Contracted MRR: ${subscription.contractedMrr} ${currency}</div>`;
+        const totalContractedValue = `<div>Total contracted value: ${subscription.totalContractedValue} ${currency}</div>`;
         const readerType = subscription.ReaderType__c ? `<div>Reader type: ${subscription.ReaderType__c}</div>` : '';
         const initialPromoCode = subscription.InitialPromotionCode__c ? `<div>Initial promo code: ${subscription.InitialPromotionCode__c}</div>` : '';
-        const promoCode = subscription.PromotionCode__c ? `<div>${subscription.InitialPromotionCode__c ? 'Renewal promo' : 'Promo'} code: ${subscription.PromotionCode__c}</div>` : '';
         const supplierCode = subscription.SupplierCode__c ? `<div>Supplier code: ${subscription.SupplierCode__c}</div>` : '';
 
-        $('#details').html('<h3>Details</h3>').append(contractEffectiveDate, subscriptionStartDate, firstPaymentDate, customerAcceptanceDate, activationDate, readerType, initialPromoCode, promoCode, supplierCode);
+        $('#details').html('<h3>Details</h3>').append(contractEffectiveDate, tenure, subscriptionStartDate, firstPaymentDate, customerAcceptanceDate, activationDate, contractedMRR, totalContractedValue, readerType, initialPromoCode, supplierCode);
     }
 
     function renderHeading(subscription) {
@@ -299,7 +313,7 @@
         const status = (today.isSameOrAfter(termEndDate) && !isCancelled) ? 'Lapsed' : subscription.status;
 
         const subscriptionHtml = `<div class="heading-segment">Subscription: ${subscription.subscriptionNumber} <span id="version"></span></div>`;
-        const accountHtml = `<div class="heading-segment">Account: ${subscription.accountName}${(subscription.accountNumber !== subscription.accountName) ? ` (#${subscription.accountNumber})` : ''}</div>`;
+        const accountHtml = `<div class="heading-segment">Account: ${subscription.accountName}${(subscription.accountNumber !== subscription.accountName) ? ` [#${subscription.accountNumber})` : ''}</div>`;
         const statusHtml = `<div class="heading-segment">Status: <span class="${status.toLowerCase()}">${status}</span></div>`;
 
         $('#heading').html('').append(subscriptionHtml, accountHtml, statusHtml);

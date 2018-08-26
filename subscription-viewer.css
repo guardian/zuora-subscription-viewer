@@ -276,4 +276,5 @@ label {
     overflow: hidden;
     padding-top: 1px;
     position: absolute;
+    white-space: nowrap;
 }
