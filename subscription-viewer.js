@@ -241,10 +241,20 @@
         $multiTermGrid.append(legendHtml(earliestRenderDay, notableDates, termStartDate, termEndDate, nextTermEndDate));
     }
 
+    function getEarliestNextPaymentDate(subscription) {
+        const chargedThroughDates = subscription.ratePlans.filter(filterOutDiscountsAndAdjustments).flatMap(rp => rp.ratePlanCharges.map(rpc => rpc.chargedThroughDate)).sort();
+        const nextPaymentDatesOnOrAfterToday = chargedThroughDates.filter(date => moment(date).isSameOrAfter(today));
+        if (nextPaymentDatesOnOrAfterToday.length !== 0) {
+            return moment(nextPaymentDatesOnOrAfterToday[0]);
+        }
+        else {
+            return moment(chargedThroughDates[0]);
+        }
+    }
+
     function renderCurrentTerm(subscription) {
         const currentTermStartDate = moment(subscription.termStartDate);
-        const chargedThroughDates = subscription.ratePlans.filter(filterOutDiscountsAndAdjustments).flatMap(rp => rp.ratePlanCharges.map(rpc => rpc.chargedThroughDate)).sort();
-        const earliestChargedThroughDate = moment(chargedThroughDates[0]);
+        const earliestNextPaymentDate = getEarliestNextPaymentDate(subscription);
         const termEndDate = moment(subscription.termEndDate);
         const termDuration = termEndDate.diff(currentTermStartDate, 'days');
         const remainingDays = termEndDate.diff(moment(), 'days');
@@ -261,7 +271,7 @@
         if (subscription.status === 'Cancelled') {
             termEndDateHtml = `<div><strong>Cancelled</strong>: <date>${moment(subscription.termEndDate).format(dmy)}</date></div>`;
         } else if (subscription.autoRenew) {
-            nextPaymentDate = `<div><b>Next payment date</b>: <date>${earliestChargedThroughDate.format(dmy)}</date></div>`;
+            nextPaymentDate = `<div><b>Next payment date</b>: <date>${earliestNextPaymentDate.format(dmy)}</date></div>`;
             termEndDateHtml = `<div>Next term starts: <date>${termEndDate.format(dmy)} (${remainingDays ? remainingDays + ` ${dayOrDays}` : remainingHours + ` ${hourOrHours}`})</date></div>`;
         } else {
             termEndDateHtml = `<div>Last day of service: <date>${termEndDate.clone().subtract(1, 'day').format(dmy)}</date></div>`;
